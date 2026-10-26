@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* The type pairing from the design deck: IBM Plex Sans for prose, JetBrains
+   Mono for anything you would copy-paste - SHAs, pod names, image tags. */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-ink-950: oklch(0.16 0.008 260);
+  --color-ink-900: oklch(0.21 0.010 260);
+  --color-ink-850: oklch(0.25 0.012 260);
+  --color-ink-800: oklch(0.30 0.014 260);
+  --color-ink-600: oklch(0.55 0.014 260);
+  --color-ink-400: oklch(0.72 0.012 260);
+  --color-ink-200: oklch(0.88 0.008 260);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-950 text-ink-200 font-sans antialiased;
+}
+
+/* Firefox has no ::-webkit-scrollbar; this covers both. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-800) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-800);
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}

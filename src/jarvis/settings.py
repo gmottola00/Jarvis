@@ -1,0 +1,103 @@
+"""Application settings.
+
+One ``Settings`` object, loaded once, injected everywhere. Nothing in Jarvis reads
+``os.environ`` directly: import-time ``os.getenv`` defaults would freeze before
+``.env`` is loaded, which is a trap worth avoiding.
+
+Every credential lives here and nowhere else. Tool clients read their token from
+``Settings``; tokens never enter agent state, prompts, or the event stream.
+
+Example:
+    >>> from jarvis.settings import get_settings
+    >>> settings = get_settings()
+    >>> settings.model
+    'claude-opus-5'
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import Literal
+
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration, read from the environment and ``.env``.
+
+    All fields take the ``JARVIS_`` prefix except the provider keys, which keep
+    their conventional unprefixed names so an existing shell export just works.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="JARVIS_",
+        extra="ignore",
+    )
+
+    # --- Anthropic -----------------------------------------------------------
+    anthropic_api_key: SecretStr | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    model: str = "claude-opus-5"
+    router_model: str = "claude-haiku-4-5"
+    max_tokens: int = 64000
+    effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+
+    # --- Behaviour -----------------------------------------------------------
+    fake_tools: bool = False
+    """Serve every capability from its ``fake`` module: no credentials, no network."""
+
+    max_graph_steps: int = 12
+    """Hard ceiling on model<->tool round trips in a single run."""
+
+    # --- Backing stores ------------------------------------------------------
+    database_url: str | None = None
+    """Postgres DSN for the LangGraph checkpointer and the audit tables.
+
+    Unset means in-process memory: the graph still works and still interrupts,
+    but a restart forgets pending approvals.
+    """
+
+    redis_url: str | None = None
+    """Redis URL for session turns. Unset means an in-process dict."""
+
+    session_ttl_seconds: int = 86_400
+
+    # --- Capabilities: GitHub ------------------------------------------------
+    github_token: SecretStr | None = None
+    github_owner: str = "gmottola00"
+    github_infra_repo: str = "Home-Lab-Infra"
+    github_api_url: str = "https://api.github.com"
+
+    # --- Capabilities: ArgoCD ------------------------------------------------
+    argocd_base_url: str | None = None
+    argocd_token: SecretStr | None = None
+    argocd_verify_tls: bool = True
+
+    # --- Capabilities: Kubernetes -------------------------------------------
+    kubeconfig: str | None = None
+    """Path to a kubeconfig. Unset falls back to in-cluster config, then to fakes."""
+
+    # --- API -----------------------------------------------------------------
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
+    log_level: str = "INFO"
+    log_json: bool = False
+
+    @property
+    def has_anthropic(self) -> bool:
+        """Whether a model call can be made at all."""
+        return self.anthropic_api_key is not None
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return the process-wide settings, constructed once.
+
+    Cached so that every module sees the same object; call ``get_settings.cache_clear()``
+    in tests that need to re-read the environment.
+    """
+    return Settings()
+
+
+__all__ = ["Settings", "get_settings"]
