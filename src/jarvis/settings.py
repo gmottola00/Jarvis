@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     github_infra_repo: str = "Home-Lab-Infra"
     github_api_url: str = "https://api.github.com"
 
+    replicas_apps: list[str] = ["tickup", "trip-ai"]
+    """Apps whose replica count ``github__set_replicas`` may change, through a pull request.
+
+    Everything else — the platform, LiteLLM, Jarvis itself — is off limits, so a
+    model cannot propose switching off the things the lab needs to recover.
+    """
+
     # --- Capabilities: ArgoCD ------------------------------------------------
     argocd_base_url: str | None = None
     argocd_token: SecretStr | None = None

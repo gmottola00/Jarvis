@@ -98,6 +98,17 @@ replaced. Commit message: `chore(<app>): bump <component> to <short-sha>`.
 7. Merging is the user's decision. Offer it; do not assume it.
 """
 
+STOP_FLOW = """\
+# Stopping a workload
+
+To stop a crash-looping or misbehaving Deployment, or bring one back, use \
+`github__set_replicas` with a one-sentence reason: it opens the pull request that \
+sets `replicas` in the app's kustomization. Only the lab's own apps are allowed; \
+the tool refuses the rest. Stopping is a last resort after you have found why it \
+fails — say what you found first. Until the pull request is merged and ArgoCD \
+has synced, the workload is still running; say so.
+"""
+
 GATES = """\
 # What happens when you call a tool
 
@@ -134,7 +145,9 @@ def build_system(*, extra: str = "") -> list[dict[str, Any]]:
         A list of system content blocks ready to pass as ``system=``.
     """
     text = "\n\n".join(
-        part for part in (IDENTITY, HARD_RULE, LAB, DEPLOY_FLOW, INVESTIGATE_FLOW, GATES, STYLE, extra) if part.strip()
+        part
+        for part in (IDENTITY, HARD_RULE, LAB, DEPLOY_FLOW, INVESTIGATE_FLOW, STOP_FLOW, GATES, STYLE, extra)
+        if part.strip()
     )
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
@@ -157,6 +170,7 @@ __all__ = [
     "INVESTIGATE_FLOW",
     "LAB",
     "ROUTER_SYSTEM",
+    "STOP_FLOW",
     "STYLE",
     "build_system",
 ]

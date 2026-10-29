@@ -129,6 +129,7 @@ a standalone MCP server an adapter rather than a rewrite.
 | `ghcr` | `list_tags` `newest_green_tag` | read |
 | `github` | `read_file` `list_prs` `check_runs` | read |
 | `github` | `create_branch` `commit_file` `open_pr` | write |
+| `github` | `set_replicas` (PR that sets `replicas` in the kustomization; apps in `JARVIS_REPLICAS_APPS` only) | write |
 | `github` | `merge_pr` | destructive |
 | `prometheus` | `query` `query_range` `pod_resources` `targets_down` | read |
 | `loki` | `search` `query` | read |

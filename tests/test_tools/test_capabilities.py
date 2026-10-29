@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from jarvis.tools import argocd, ghcr, github, k8s, loki, prometheus
 
 
@@ -46,6 +48,47 @@ class TestGitHub:
         )
         out = await github.tools.open_pr(head="jarvis/test", title="t", body="b")
         assert "Opened Home-Lab-Infra#" in out
+
+
+class TestSetReplicas:
+    async def test_opens_a_pr_that_stops_the_deployment(self) -> None:
+        from jarvis.core.kustomize import parse_replicas
+
+        out = await github.tools.set_replicas(
+            app="tickup", component="backend", replicas=0, reason="OOMKilled 151 times in 24h"
+        )
+        assert "Opened Home-Lab-Infra#" in out and "only after merge" in out
+        client = github.provider.get()
+        pr = client._prs[-1]
+        assert pr["title"] == "chore(tickup): stop backend"
+        committed = client._branches[pr["head"]]["apps/tickup/kustomization.yaml"]
+        assert parse_replicas(committed) == {"tickup-backend": 0}
+
+    async def test_already_set_opens_nothing(self) -> None:
+        client = github.provider.get()
+        await github.tools.set_replicas(app="tickup", component="web", replicas=0, reason="broken image")
+        await client.merge_pr("Home-Lab-Infra", client._prs[-1]["number"])
+        before = len(client._prs)
+        out = await github.tools.set_replicas(app="tickup", component="web", replicas=0, reason="again")
+        assert "already set" in out
+        assert len(client._prs) == before
+
+    @pytest.mark.parametrize(
+        "args, expected",
+        [
+            ({"app": "litellm", "component": "backend", "replicas": 0, "reason": "x"}, "not an app"),
+            ({"app": "jarvis", "component": "backend", "replicas": 0, "reason": "x"}, "not an app"),
+            ({"app": "tickup", "component": "backend", "replicas": 9, "reason": "x"}, "between 0 and 3"),
+            ({"app": "tickup", "component": "backend", "replicas": 0, "reason": "  "}, "reason is required"),
+        ],
+    )
+    async def test_refusals_are_error_results(self, registry, args, expected) -> None:
+        from jarvis.core.types import ToolCall
+
+        result = await registry.invoke(ToolCall(id="x", name="github__set_replicas", args=args))
+        assert not result.ok
+        assert expected in result.content
+        assert len(github.provider.get()._prs) == 1  # only the fixture PR
 
 
 class TestGHCR:

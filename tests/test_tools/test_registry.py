@@ -11,7 +11,7 @@ from jarvis.exceptions import ToolNotFoundError
 class TestRegistry:
     def test_holds_every_capability(self, registry) -> None:
         assert set(registry.by_namespace()) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki"}
-        assert len(registry) == 24
+        assert len(registry) == 25
 
     def test_unknown_name_raises(self, registry) -> None:
         with pytest.raises(ToolNotFoundError):
@@ -29,6 +29,7 @@ class TestRegistry:
     def test_risk_assignments(self, registry) -> None:
         assert registry.risk_of("k8s__list_pods") is RiskLevel.READ
         assert registry.risk_of("github__open_pr") is RiskLevel.WRITE
+        assert registry.risk_of("github__set_replicas") is RiskLevel.WRITE
         assert registry.risk_of("github__merge_pr") is RiskLevel.DESTRUCTIVE
         assert registry.risk_of("argocd__hard_refresh") is RiskLevel.DESTRUCTIVE
 

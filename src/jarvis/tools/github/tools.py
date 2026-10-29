@@ -3,16 +3,21 @@
 Risk assignment, which is the part worth reading carefully:
 
 - Reads are ``READ``.
-- ``create_branch``, ``commit_file`` and ``open_pr`` are ``WRITE``. They change a
-  repository but not the cluster, and every one of them lands as a reviewable diff.
+- ``create_branch``, ``commit_file``, ``open_pr`` and ``set_replicas`` are ``WRITE``.
+  They change a repository but not the cluster, and every one of them lands as a
+  reviewable diff. ``set_replicas`` stopping a workload is no exception: it only
+  opens the pull request, and the merge that would apply it is gated below.
 - ``merge_pr`` is ``DESTRUCTIVE``. Merging is what actually ships, and the design
   doc is explicit that this gate never gets automated.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Literal
 
+from jarvis.core.kustomize import parse_images, parse_replicas
+from jarvis.core.kustomize import set_replicas as edit_replicas
 from jarvis.core.types import RiskLevel
 from jarvis.settings import get_settings
 from jarvis.tools.base import ToolSpec, tool
@@ -133,6 +138,72 @@ async def open_pr(head: str, title: str, body: str, repo: str | None = None, bas
     return f"Opened {target}#{pr['number']} ({head} -> {pr['base']}): {pr['url']}"
 
 
+MAX_REPLICAS = 3
+"""One node: more than this is a typo, not a plan."""
+
+
+@tool(namespace="github", risk=RiskLevel.WRITE)
+async def set_replicas(app: str, component: Literal["backend", "web"], replicas: int, reason: str) -> str:
+    """Open a pull request that sets how many pods one of an app's Deployments runs.
+
+    Use replicas=0 to stop a workload that is crash-looping or misbehaving, and 1
+    to bring it back. Nothing changes in the cluster until the pull request is
+    merged and ArgoCD syncs it, so never say the workload is stopped before then.
+    Branch, commit and pull request are all made by this one call.
+
+    Args:
+        app: The app, e.g. "tickup". Only apps in JARVIS_REPLICAS_APPS are allowed.
+        component: Which Deployment of the app, "backend" or "web".
+        replicas: Pods to run, 0 to 3. 0 stops the workload.
+        reason: Why, in one sentence. It goes in the commit message and the pull request.
+    """
+    settings = get_settings()
+    if app not in settings.replicas_apps:
+        allowed = ", ".join(settings.replicas_apps) or "none"
+        raise ValueError(f"{app!r} is not an app whose replicas Jarvis may change (allowed: {allowed}).")
+    if not 0 <= replicas <= MAX_REPLICAS:
+        raise ValueError(f"replicas must be between 0 and {MAX_REPLICAS}, got {replicas}.")
+    reason = " ".join(reason.split())
+    if not reason:
+        raise ValueError("a reason is required; it is what the pull request will say.")
+
+    deployment = f"{app}-{component}"
+    path = f"apps/{app}/kustomization.yaml"
+    repo = settings.github_infra_repo
+    client = provider.get()
+
+    current, _ = await client.read_file(repo, path)
+    # Kustomize ignores a replicas entry that names no Deployment, silently. The
+    # image pin is the cheapest proof that this component exists.
+    if not any(pin.short == deployment for pin in parse_images(current)):
+        raise ValueError(f"{path} pins no image named {deployment}, so there is no such Deployment.")
+    if parse_replicas(current).get(deployment) == replicas:
+        return f"{deployment} is already set to {replicas} replica(s) in {path}. Nothing to change."
+
+    branch = f"jarvis/replicas-{deployment}-{replicas}-{datetime.now(timezone.utc):%Y%m%d%H%M%S}"
+    await client.create_branch(repo, branch)
+    # Re-read on the branch: the edit must apply to exactly what the branch holds.
+    on_branch, _ = await client.read_file(repo, path, ref=branch)
+    verb = "stop" if replicas == 0 else f"run {replicas} replica(s) of"
+    message = f"chore({app}): {verb} {component} — {reason}"
+    await client.commit_file(repo, path, edit_replicas(on_branch, deployment, replicas), message, branch)
+    pr = await client.open_pr(
+        repo,
+        head=branch,
+        title=f"chore({app}): {verb} {component}",
+        body=(
+            f"Sets `replicas` for `{deployment}` to **{replicas}** in `{path}`.\n\n"
+            f"Reason: {reason}\n\n"
+            "Nothing changes until this is merged; ArgoCD then reconciles the Deployment. "
+            f"To undo, set it back with another pull request."
+        ),
+    )
+    return (
+        f"Opened {repo}#{pr['number']} to set {deployment} to {replicas} replica(s): {pr['url']}\n"
+        "It takes effect only after merge and an ArgoCD sync. Merging is the user's call."
+    )
+
+
 @tool(namespace="github", risk=RiskLevel.DESTRUCTIVE)
 async def merge_pr(
     number: int, repo: str | None = None, method: Literal["squash", "merge", "rebase"] = "squash"
@@ -154,6 +225,15 @@ async def merge_pr(
     )
 
 
-TOOLS: list[ToolSpec] = [read_file, list_prs, check_runs, create_branch, commit_file, open_pr, merge_pr]
+TOOLS: list[ToolSpec] = [
+    read_file,
+    list_prs,
+    check_runs,
+    create_branch,
+    commit_file,
+    open_pr,
+    set_replicas,
+    merge_pr,
+]
 
 __all__ = ["TOOLS", "provider"]
