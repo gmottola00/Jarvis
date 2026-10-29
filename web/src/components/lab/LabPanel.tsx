@@ -95,6 +95,17 @@ export function LabPanel({ overview, capabilities }: { overview: LabOverview | n
             )}
           </Card>
 
+          <Card title="Alerts" note={`${overview.firing_alerts} firing`}>
+            {overview.firing_alerts === 0 ? (
+              <p className="text-xs text-ink-600">Nothing is firing.</p>
+            ) : (
+              <a href="#alerts" className="flex items-center gap-2 text-xs text-amber-300 hover:text-amber-200">
+                <Dot ok={false} />
+                {overview.firing_alerts} alert{overview.firing_alerts === 1 ? "" : "s"} firing — open the list to investigate
+              </a>
+            )}
+          </Card>
+
           {Object.keys(overview.errors).length > 0 && (
             <Card title="Capability errors">
               <ul className="space-y-1">
