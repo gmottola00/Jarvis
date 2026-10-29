@@ -3,7 +3,8 @@ import type { ModelCatalog } from "../../lib/types";
 /**
  * Which model answers the next message. Claude and local models are grouped;
  * a local model whose GPU machine is off stays pickable and says who will
- * answer instead, because that is exactly what the backend will do.
+ * answer instead, because that is exactly what the backend will do. A local
+ * model not yet in VRAM says so: its first answer waits for it to load.
  */
 export function ModelPicker({
   catalog,
@@ -20,6 +21,7 @@ export function ModelPicker({
   const local = catalog.models.filter((m) => m.provider === "local");
   const picked = catalog.models.find((m) => m.id === value);
   const offline = picked?.provider === "local" && !picked.available;
+  const cold = picked?.provider === "local" && picked.available && !picked.loaded;
 
   // Nothing to choose: hide rather than show a one-option menu.
   if (catalog.models.length < 2) return null;
@@ -27,7 +29,13 @@ export function ModelPicker({
   return (
     <select
       aria-label="Model"
-      title={offline ? `GPU offline: ${catalog.fallback} will answer` : value}
+      title={
+        offline
+          ? `GPU offline: ${catalog.fallback} will answer`
+          : cold
+            ? `${value} is not in VRAM yet: the first answer waits for it to load`
+            : value
+      }
       value={value}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
@@ -47,7 +55,7 @@ export function ModelPicker({
           {local.map((m) => (
             <option key={m.id} value={m.id}>
               {m.id.replace(/^local\//, "")}
-              {m.available ? "" : ` · offline → ${catalog.fallback}`}
+              {m.available ? (m.loaded ? " · loaded" : " · cold") : ` · offline → ${catalog.fallback}`}
             </option>
           ))}
         </optgroup>

@@ -73,12 +73,23 @@ export interface ModelOption {
   provider: "anthropic" | "local";
   /** False for a local model while the GPU machine is off: picking it still works, `fallback` answers. */
   available: boolean;
+  /** A local model already in VRAM: answers at once. The others first spend seconds loading. */
+  loaded: boolean;
+}
+
+/** Spend of Jarvis's own gateway key, in dollars. `max_budget` null = unlimited. */
+export interface Budget {
+  spend: number;
+  max_budget: number | null;
+  reset_at: string | null;
 }
 
 export interface ModelCatalog {
   default: string;
   fallback: string;
   models: ModelOption[];
+  /** Null without a gateway. */
+  budget: Budget | null;
 }
 
 export interface PendingApproval {
