@@ -58,7 +58,7 @@ class TestHealthAndCapabilities:
     async def test_capabilities_describe_the_policy_and_tools(self, client: httpx.AsyncClient) -> None:
         body = (await client.get("/api/capabilities")).json()
         assert body["policy"] == {"read": "auto", "write": "auto (pull request)", "destructive": "confirm"}
-        assert set(body["capabilities"]) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki"}
+        assert set(body["capabilities"]) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki", "alertmanager"}
         assert body["fake_tools"] is True
 
 
@@ -71,6 +71,43 @@ class TestLabOverview:
         assert body["unhealthy_pods"][0]["reason"] == "ImagePullBackOff"
         assert body["degraded"] is True
         assert body["errors"] == {}
+
+
+class TestAlerts:
+    async def test_alerts_page(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/alerts")).json()
+        assert len(body["alerts"]) == 3
+        assert body["alerts"][-1]["name"] == "KubePodNotReady"  # the youngest of three warnings
+        assert body["targets_down"] == [] and body["errors"] == {}
+
+    async def test_brief_for_a_firing_alert(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/alerts/59917779b926e5e6/brief")).json()
+        assert body["fingerprint"] == "59917779b926e5e6"
+        assert "KubePodCrashLooping" in body["prompt"]
+        assert "tickup-backend-5f7c8d9b6-qw3rt (container backend)" in body["prompt"]
+
+    async def test_brief_for_a_resolved_alert_is_404(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/alerts/deadbeef/brief")).status_code == 404
+
+    async def test_overview_counts_firing_alerts(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/lab/overview")).json()["firing_alerts"] == 3
+
+    async def test_unconfigured_alertmanager_degrades_one_source(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.exceptions import ConfigurationError
+        from jarvis.tools import alertmanager
+
+        def unconfigured() -> None:
+            raise ConfigurationError("alertmanager is not configured: set JARVIS_ALERTMANAGER_URL")
+
+        monkeypatch.setattr(alertmanager.provider, "get", unconfigured)
+
+        response = await client.get("/api/alerts")
+        assert response.status_code == 200
+        assert "JARVIS_ALERTMANAGER_URL" in response.json()["errors"]["alertmanager.alerts"]
+
+        overview = (await client.get("/api/lab/overview")).json()
+        assert overview["firing_alerts"] == 0
+        assert "alertmanager.alerts" not in overview["errors"]
 
 
 class TestChat:

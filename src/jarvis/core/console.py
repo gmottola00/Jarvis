@@ -472,10 +472,66 @@ class DeliveryOverview(BaseModel):
     fetched_at: datetime = Field(default_factory=_now)
 
 
+# ============================================================================
+# Alerts
+# ============================================================================
+
+
+class AlertView(BaseModel):
+    """One alert as Alertmanager holds it, with the thing it is about pulled out.
+
+    Alert rules from kube-prometheus-stack do not agree on where the subject
+    lives. ``KubePodCrashLooping`` puts it in ``pod``; ``KubeDeploymentReplicasMismatch``
+    puts it in ``deployment`` and leaves ``pod`` pointing at the kube-state-metrics
+    pod that exported the metric. ``target`` is the resolved answer, so the page
+    and the agent both look at the right thing.
+    """
+
+    fingerprint: str
+    name: str
+    severity: str = ""
+    """``critical`` | ``warning`` | ``info`` | ``none``, as the rule sets it."""
+
+    state: Literal["active", "suppressed", "unprocessed"] = "active"
+    """``suppressed`` means silenced or inhibited: firing, but someone decided not to hear it."""
+
+    namespace: str = ""
+    target: str = ""
+    """``Pod/tickup-backend-…``, ``Deployment/tickup-backend``, or empty for a cluster-wide alert."""
+
+    container: str = ""
+    summary: str = ""
+    description: str = ""
+    runbook_url: str = ""
+    starts_at: datetime | None = None
+    age: float = 0.0
+    labels: dict[str, str] = Field(default_factory=dict)
+
+
+class TargetView(BaseModel):
+    """A scrape target whose last scrape failed."""
+
+    job: str = ""
+    url: str = ""
+    health: str = ""
+    last_error: str = ""
+
+
+class AlertsOverview(BaseModel):
+    """What is firing, and whether the monitoring itself can see everything."""
+
+    alerts: list[AlertView] = Field(default_factory=list)
+    targets_down: list[TargetView] = Field(default_factory=list)
+    errors: dict[str, str] = Field(default_factory=dict)
+    fetched_at: datetime = Field(default_factory=_now)
+
+
 WorkloadDetail.model_rebuild()
 
 
 __all__ = [
+    "AlertView",
+    "AlertsOverview",
     "AppDelivery",
     "ClusterSnapshot",
     "ComponentDelivery",
@@ -495,6 +551,7 @@ __all__ = [
     "ReplicaSetView",
     "ResourceUsage",
     "ServiceView",
+    "TargetView",
     "VolumeView",
     "WorkloadDetail",
     "WorkloadSummary",

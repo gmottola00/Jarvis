@@ -329,6 +329,49 @@ export interface DeliveryOverview {
   fetched_at: string;
 }
 
+/* --- Alerts --------------------------------------------------------------- */
+
+export type AlertState = "active" | "suppressed" | "unprocessed";
+
+export interface AlertView {
+  fingerprint: string;
+  name: string;
+  /** `critical` | `warning` | `info` | `none`, as the rule sets it. */
+  severity: string;
+  /** `suppressed` = silenced or inhibited: firing, but nobody is meant to hear it. */
+  state: AlertState;
+  namespace: string;
+  /** `Pod/…`, `Deployment/…`, or empty for a cluster-wide alert. Never the exporter's own pod. */
+  target: string;
+  container: string;
+  summary: string;
+  description: string;
+  runbook_url: string;
+  starts_at: string | null;
+  /** Seconds firing, computed server-side. */
+  age: number;
+  labels: Record<string, string>;
+}
+
+export interface TargetView {
+  job: string;
+  url: string;
+  health: string;
+  last_error: string;
+}
+
+export interface AlertsOverview {
+  alerts: AlertView[];
+  targets_down: TargetView[];
+  errors: Record<string, string>;
+  fetched_at: string;
+}
+
+export interface AlertBrief {
+  fingerprint: string;
+  prompt: string;
+}
+
 /** Kinds `/api/k8s/manifest/{kind}/…` knows how to read. */
 export type ManifestKind =
   | "pod"

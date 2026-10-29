@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.tools import argocd, ghcr, github, k8s, loki, prometheus
+from jarvis.tools import alertmanager, argocd, ghcr, github, k8s, loki, prometheus
 
 
 class TestK8s:
@@ -164,3 +164,42 @@ class TestLoki:
     async def test_raw_query(self) -> None:
         out = await loki.tools.query(logql='{app="trip-ai"} |= "health"')
         assert "1 line(s)" in out
+
+
+class TestAlertmanager:
+    async def test_heartbeat_and_silenced_are_left_out(self) -> None:
+        out = await alertmanager.tools.list_alerts()
+        assert "3 alert(s)" in out
+        assert "Watchdog" not in out and "CPUThrottlingHigh" not in out
+
+    async def test_silenced_on_request(self) -> None:
+        out = await alertmanager.tools.list_alerts(include_silenced=True)
+        assert "CPUThrottlingHigh" in out and "(suppressed)" in out
+
+    async def test_namespace_filter(self) -> None:
+        assert "No alerts firing in trip-ai." == await alertmanager.tools.list_alerts(namespace="trip-ai")
+
+    async def test_target_skips_the_exporter_pod(self) -> None:
+        """kube-state-metrics alerts name the exporter's pod; the subject is the Deployment."""
+        alerts = {a.name: a for a in await alertmanager.provider.get().alerts()}
+        assert alerts["KubeDeploymentReplicasMismatch"].target == "Deployment/tickup-backend"
+        assert alerts["KubeDeploymentReplicasMismatch"].container == ""
+        assert alerts["KubePodCrashLooping"].target == "Pod/tickup-backend-5f7c8d9b6-qw3rt"
+        assert alerts["KubePodCrashLooping"].container == "backend"
+        assert alerts["KubePodCrashLooping"].description.endswith('(reason: "CrashLoopBackOff").')
+
+    async def test_oldest_first_within_a_severity(self) -> None:
+        names = [a.name for a in await alertmanager.provider.get().alerts()]
+        assert names[-1] == "KubePodNotReady"  # 1.2h, younger than the two 13h alerts
+
+
+class TestPlaybooks:
+    async def test_brief_names_the_subject_and_drops_the_exporter_pod(self) -> None:
+        from jarvis.agent.playbooks import investigate_alert
+
+        alerts = {a.name: a for a in await alertmanager.provider.get().alerts()}
+        prompt = investigate_alert(alerts["KubeDeploymentReplicasMismatch"])
+        assert "About: tickup/Deployment/tickup-backend" in prompt
+        assert "kube-state-metrics" not in prompt
+        assert "Firing for: 13.0 hours" in prompt
+        assert "pull request" in prompt

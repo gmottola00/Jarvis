@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     loki_url: str | None = None
     """Loki's HTTP API, e.g. ``http://loki.monitoring:3100``."""
 
+    alertmanager_url: str | None = None
+    """Alertmanager's API, e.g. ``http://kube-prometheus-stack-alertmanager.monitoring:9093``."""
+
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
     log_level: str = "INFO"

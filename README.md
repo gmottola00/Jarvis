@@ -133,6 +133,7 @@ a standalone MCP server an adapter rather than a rewrite.
 | `github` | `merge_pr` | destructive |
 | `prometheus` | `query` `query_range` `pod_resources` `targets_down` | read |
 | `loki` | `search` `query` | read |
+| `alertmanager` | `list_alerts` | read |
 
 ---
 
@@ -172,6 +173,7 @@ Jarvis starts degraded rather than refusing to boot:
 | `JARVIS_OLLAMA_URL` | local models always shown as available; the gateway's fallback still covers a dead GPU |
 | `JARVIS_PROMETHEUS_URL` | `prometheus__*` tools return an error naming the variable; the rest of the agent is unaffected |
 | `JARVIS_LOKI_URL` | `loki__*` tools likewise; `k8s__get_logs` still reads live containers |
+| `JARVIS_ALERTMANAGER_URL` | the alerts page shows an error card; the dashboard's alert count is simply left out |
 
 ### Models and the LLM gateway
 
