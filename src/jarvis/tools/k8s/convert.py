@@ -423,9 +423,7 @@ def to_node_detail(item: Any, *, pods: list[PodDetail] | None = None) -> NodeDet
             )
             for c in conditions
         ],
-        taints=[
-            f"{t.key}={getattr(t, 'value', '') or ''}:{t.effect}" for t in (getattr(spec, "taints", None) or [])
-        ],
+        taints=[f"{t.key}={getattr(t, 'value', '') or ''}:{t.effect}" for t in (getattr(spec, "taints", None) or [])],
         unschedulable=bool(getattr(spec, "unschedulable", False)),
         created_at=_created(item),
         age=age_seconds(_created(item)),
@@ -546,9 +544,7 @@ def sanitize_manifest(obj: dict[str, Any]) -> dict[str, Any]:
     manifest = dict(obj)
     metadata = dict(manifest.get("metadata") or {})
     metadata.pop("managedFields", None)
-    annotations = {
-        k: v for k, v in (metadata.get("annotations") or {}).items() if k not in _NOISY_ANNOTATIONS
-    }
+    annotations = {k: v for k, v in (metadata.get("annotations") or {}).items() if k not in _NOISY_ANNOTATIONS}
     if annotations:
         metadata["annotations"] = annotations
     else:

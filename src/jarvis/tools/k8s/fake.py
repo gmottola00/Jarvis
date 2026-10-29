@@ -190,9 +190,7 @@ _PODS: list[PodDetail] = [
         owner="ReplicaSet/argocd-server-6d4f9c7b8",
         age_hours=2160,
         ip="10.42.0.11",
-        containers=[
-            _app_container("argocd-server", "quay.io/argoproj/argocd:v2.13.2", 8080, cpu_request="100m")
-        ],
+        containers=[_app_container("argocd-server", "quay.io/argoproj/argocd:v2.13.2", 8080, cpu_request="100m")],
     ),
     _pod(
         "argocd",
@@ -200,9 +198,7 @@ _PODS: list[PodDetail] = [
         owner="ReplicaSet/argocd-repo-server-7c8b5d94",
         age_hours=2160,
         ip="10.42.0.12",
-        containers=[
-            _app_container("argocd-repo-server", "quay.io/argoproj/argocd:v2.13.2", 8081, cpu_request="100m")
-        ],
+        containers=[_app_container("argocd-repo-server", "quay.io/argoproj/argocd:v2.13.2", 8081, cpu_request="100m")],
     ),
     _pod(
         "argocd",
@@ -419,9 +415,7 @@ _WORKLOADS: list[WorkloadSummary] = [
         "trip-ai-backend",
         ["ghcr.io/gmottola00/trip-ai-backend:ada2faf9b9ed076927b2c26c0a6d54a6826f3ecd"],
     ),
-    _deployment(
-        "trip-ai", "trip-ai-web", ["ghcr.io/gmottola00/trip-ai-web:438f84423e503baa36539934518e08d270dfb7cc"]
-    ),
+    _deployment("trip-ai", "trip-ai-web", ["ghcr.io/gmottola00/trip-ai-web:438f84423e503baa36539934518e08d270dfb7cc"]),
     _deployment(
         "tickup",
         "tickup-backend",
@@ -553,7 +547,9 @@ _INGRESSES = [
 # ============================================================================
 
 
-def _event(namespace: str, type_: str, reason: str, obj: str, message: str, *, minutes: float, count: int = 1) -> EventRecord:
+def _event(
+    namespace: str, type_: str, reason: str, obj: str, message: str, *, minutes: float, count: int = 1
+) -> EventRecord:
     at = _ago(minutes=minutes)
     return EventRecord(
         namespace=namespace,
@@ -635,7 +631,7 @@ _FOLLOW = [
     'INFO:     10.42.0.1:51844 - "GET /health HTTP/1.1" 200 OK',
     'INFO:     10.42.0.1:51850 - "GET /api/leagues HTTP/1.1" 200 OK',
     "INFO:     cache hit ratio 0.82 over last 1000 requests",
-    'WARNING:  slow query: SELECT * FROM matches took 1.9s',
+    "WARNING:  slow query: SELECT * FROM matches took 1.9s",
     'INFO:     10.42.0.1:51862 - "POST /api/predictions HTTP/1.1" 201 Created',
 ]
 
@@ -777,9 +773,9 @@ class FakeK8sClient:
                     "namespace": pod.namespace,
                     "labels": pod.labels,
                     "creationTimestamp": pod.created_at.isoformat() if pod.created_at else None,
-                    "ownerReferences": [{"kind": pod.owner.split("/")[0], "name": pod.owner.split("/")[-1]}]
-                    if pod.owner
-                    else [],
+                    "ownerReferences": (
+                        [{"kind": pod.owner.split("/")[0], "name": pod.owner.split("/")[-1]}] if pod.owner else []
+                    ),
                 },
                 "spec": {
                     "nodeName": pod.node,

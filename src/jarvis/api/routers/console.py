@@ -31,6 +31,7 @@ from jarvis.core.console import (
     NetworkView,
     NodeDetail,
     PodDetail,
+    ReplicaSetView,
     WorkloadDetail,
     WorkloadSummary,
 )
@@ -169,9 +170,11 @@ async def workload(namespace: str, name: str) -> WorkloadDetail:
         p for p in pods if p.name.startswith(f"{name}-")
     ]
 
-    replica_sets = []
+    replica_sets: list[ReplicaSetView] = []
     if summary.kind == "Deployment":
-        replica_sets = await _attempt("replicasets", lambda: client.replica_sets(namespace, selector=selector), errors) or []
+        replica_sets = (
+            await _attempt("replicasets", lambda: client.replica_sets(namespace, selector=selector), errors) or []
+        )
 
     events = await _attempt("events", lambda: client.events(namespace, limit=200), errors) or []
     names = {p.name for p in mine} | {name}

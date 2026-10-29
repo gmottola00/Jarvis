@@ -65,10 +65,10 @@ def parse_memory(value: str | int | float | None) -> int:
                 return int(float(text[: -len(suffix)]) * factor)
             except ValueError:
                 return 0
-    for suffix, factor in _DECIMAL.items():
+    for suffix, scale in _DECIMAL.items():
         if text.endswith(suffix):
             try:
-                return int(float(text[: -len(suffix)]) * factor)
+                return int(float(text[: -len(suffix)]) * scale)
             except ValueError:
                 return 0
     try:

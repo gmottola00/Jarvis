@@ -283,9 +283,7 @@ class K8sClient:
         except* Exception as group_error:
             raise UpstreamError("k8s", f"list workloads failed: {group_error.exceptions[0]}") from group_error
 
-        return sorted(
-            (w for task in tasks for w in task.result()), key=lambda w: (w.namespace, w.kind, w.name)
-        )
+        return sorted((w for task in tasks for w in task.result()), key=lambda w: (w.namespace, w.kind, w.name))
 
     async def replica_sets(self, namespace: str, *, selector: dict[str, str]) -> list[ReplicaSetView]:
         """ReplicaSets matching a Deployment's selector — its rollout history."""
@@ -311,7 +309,9 @@ class K8sClient:
         everywhere = namespace == "all"
 
         async def services() -> Any:
-            return await (core.list_service_for_all_namespaces() if everywhere else core.list_namespaced_service(namespace))
+            return await (
+                core.list_service_for_all_namespaces() if everywhere else core.list_namespaced_service(namespace)
+            )
 
         async def endpoints() -> Any:
             return await (
