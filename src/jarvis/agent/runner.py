@@ -91,6 +91,7 @@ class JarvisRunner:
             return
 
         answer = (snapshot.values or {}).get("answer", "")
+        served_by = (snapshot.values or {}).get("served_by", "")
         usage = self._delta(before, (snapshot.values or {}).get("usage") or Usage())
 
         if self._sessions is not None and answer:
@@ -99,15 +100,18 @@ class JarvisRunner:
             await self._audit.finish_run(run_id, answer, usage)
 
         logger.info("run.done", output_tokens=usage.output_tokens)
-        yield DoneEvent(run_id=run_id, usage=usage).model_dump(mode="json")
+        yield DoneEvent(run_id=run_id, usage=usage, model=served_by).model_dump(mode="json")
 
-    async def start(self, session_id: str, message: str, *, run_id: str | None = None) -> AsyncIterator[Any]:
+    async def start(
+        self, session_id: str, message: str, *, run_id: str | None = None, model: str = ""
+    ) -> AsyncIterator[Any]:
         """Begin a run and stream its events.
 
         Args:
             session_id: Conversation id; also the checkpointer thread.
             message: The user's message.
             run_id: Override the generated run id.
+            model: Model for this run, already resolved. Empty means the default.
         """
         run_id = run_id or new_id("run")
         bind_run(run_id, session=session_id)
@@ -118,7 +122,7 @@ class JarvisRunner:
                 await self._audit.start_run(run_id, session_id, message)
 
             before = await self._usage(session_id)
-            state = initial_state(session_id, message, run_id=run_id)
+            state = initial_state(session_id, message, run_id=run_id, model=model)
             async for event in self._drain(state, session_id, run_id, before):
                 yield event
         finally:

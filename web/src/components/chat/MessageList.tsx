@@ -54,6 +54,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
               )}
               {message.usage && (
                 <p className="font-mono text-[10px] text-ink-800">
+                  {message.model && `${message.model} · `}
                   {message.usage.input_tokens} in · {message.usage.output_tokens} out
                   {message.usage.cache_read_tokens > 0 && ` · ${message.usage.cache_read_tokens} cached`}
                 </p>

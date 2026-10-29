@@ -94,6 +94,27 @@ class TestChat:
         assert names(events) == ["token", "done"]
 
 
+class TestModels:
+    @pytest.mark.script([])
+    async def test_without_a_gateway_the_default_is_the_only_choice(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/models")).json()
+
+        assert body["default"] == "claude-opus-5"
+        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True}]
+
+    @pytest.mark.script([ScriptedLLM.say("Ciao!")])
+    async def test_the_chosen_model_reaches_the_llm(self, client: httpx.AsyncClient) -> None:
+        await read_sse(client, "/api/chat", {"message": "ciao", "model": "claude-opus-5"})
+        assert client.llm.requests[0]["model"] == "claude-opus-5"  # type: ignore[attr-defined]
+
+    @pytest.mark.script([])
+    async def test_an_unknown_model_is_a_400_before_anything_runs(self, client: httpx.AsyncClient) -> None:
+        response = await client.post("/api/chat", json={"message": "ciao", "model": "gpt-5"})
+
+        assert response.status_code == 400
+        assert client.llm.requests == []  # type: ignore[attr-defined]
+
+
 class TestApprovalFlow:
     SCRIPT = [
         ScriptedLLM.call("github__merge_pr", {"number": 12}, risk=RiskLevel.DESTRUCTIVE, text="Merging #12."),

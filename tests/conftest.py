@@ -13,6 +13,10 @@ from typing import Any
 import pytest
 
 os.environ.setdefault("JARVIS_FAKE_TOOLS", "true")
+# No gateway and no GPU probe unless a test builds its own Settings: a developer's
+# .env pointing at a live LiteLLM must not turn the suite into network calls.
+os.environ.setdefault("JARVIS_LLM_GATEWAY_URL", "")
+os.environ.setdefault("JARVIS_OLLAMA_URL", "")
 
 from jarvis.agent.llm import ScriptedLLM  # noqa: E402
 from jarvis.core.policy import PolicyGate  # noqa: E402

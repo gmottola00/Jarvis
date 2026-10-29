@@ -209,3 +209,23 @@ class TestHistory:
         second_request = llm.requests[1]["messages"]
         assert [m["role"] for m in second_request] == ["user", "assistant", "user"]
         assert second_request[0]["content"] == "first"
+
+
+class TestModelChoice:
+    async def test_the_run_model_reaches_every_model_call(self, toy_registry) -> None:
+        llm = ScriptedLLM([ScriptedLLM.call("toy__peek", {}), ScriptedLLM.say("ok")])
+        graph = build_graph(llm=llm, registry=toy_registry)
+
+        await drive(graph, initial_state("t", "look", model="local/qwen3-30b"), "t")
+
+        assert [r["model"] for r in llm.requests] == ["local/qwen3-30b", "local/qwen3-30b"]
+
+    async def test_each_run_picks_its_own_model(self, toy_registry) -> None:
+        """Switching model mid-session is a per-run choice, not sticky state."""
+        llm = ScriptedLLM([ScriptedLLM.say("one"), ScriptedLLM.say("two")])
+        graph = build_graph(llm=llm, registry=toy_registry)
+
+        await drive(graph, initial_state("t", "first", model="local/qwen3-30b"), "t")
+        await drive(graph, initial_state("t", "second"), "t")
+
+        assert [r["model"] for r in llm.requests] == ["local/qwen3-30b", None]

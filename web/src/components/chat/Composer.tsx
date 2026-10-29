@@ -1,15 +1,18 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 export function Composer({
   onSend,
   busy,
   disabled,
   placeholder,
+  accessory,
 }: {
   onSend: (message: string) => void;
   busy: boolean;
   disabled?: boolean;
   placeholder?: string;
+  /** Rendered next to Send - the model picker. */
+  accessory?: ReactNode;
 }) {
   const [value, setValue] = useState("");
   const area = useRef<HTMLTextAreaElement>(null);
@@ -45,6 +48,7 @@ export function Composer({
           }}
           className="max-h-44 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-ink-800 disabled:opacity-50"
         />
+        {accessory}
         <button
           type="button"
           onClick={submit}

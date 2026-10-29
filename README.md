@@ -165,6 +165,26 @@ Jarvis starts degraded rather than refusing to boot:
 | `JARVIS_DATABASE_URL` | in-memory checkpointer — a restart forgets pending approvals |
 | `JARVIS_REDIS_URL` | in-process session history |
 | capability tokens | that capability's tools return an error naming the variable to set |
+| `JARVIS_LLM_GATEWAY_URL` | Claude only, straight to Anthropic; the model picker is hidden |
+| `JARVIS_OLLAMA_URL` | local models always shown as available; the gateway's fallback still covers a dead GPU |
+
+### Models and the LLM gateway
+
+With `JARVIS_LLM_GATEWAY_URL` pointing at a LiteLLM proxy, every model call goes
+through it and `ANTHROPIC_API_KEY` holds the proxy's virtual key, not the real
+one. The chat gets a model picker fed by `GET /api/models`, which is whatever
+that key may call:
+
+- `claude-*` go through the proxy's Anthropic pass-through, so adaptive
+  thinking, effort and the refusal fallback arrive untouched;
+- `local/*` (Ollama on the GPU desktop) go through the proxy's `/v1/messages`,
+  with a trimmed request. Their thinking is streamed but not kept in history,
+  since a later Claude turn would reject an unsigned thinking block.
+
+While the desktop is off, `local/*` show as offline and a message sent to one
+is answered by `JARVIS_LOCAL_FALLBACK_MODEL` without waiting on a timeout. The
+answering model is shown under each reply. In the cluster the proxy is
+`apps/litellm` in Home-Lab-Infra; locally, `docker compose --profile gateway up`.
 
 ---
 

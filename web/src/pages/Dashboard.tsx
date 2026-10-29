@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalDialog } from "../components/approval/ApprovalDialog";
 import { Composer } from "../components/chat/Composer";
 import { MessageList } from "../components/chat/MessageList";
+import { ModelPicker } from "../components/chat/ModelPicker";
 import { LabPanel } from "../components/lab/LabPanel";
-import { api, storeSession, storedSession } from "../lib/api";
+import { api, storeModel, storeSession, storedModel, storedSession } from "../lib/api";
 import { streamEvents } from "../lib/sse";
-import type { Capabilities, LabOverview, Message, PendingApproval, RunEvent } from "../lib/types";
+import type { Capabilities, LabOverview, Message, ModelCatalog, PendingApproval, RunEvent } from "../lib/types";
 
 const OVERVIEW_INTERVAL_MS = 15_000;
 
@@ -23,8 +24,18 @@ export function Dashboard() {
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [overview, setOverview] = useState<LabOverview | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const [model, setModel] = useState<string>(() => storedModel() ?? "");
 
   const assistantId = useRef<string | null>(null);
+
+  // A remembered model the gateway no longer offers falls back to the default.
+  const activeModel = catalog?.models.some((m) => m.id === model) ? model : (catalog?.default ?? "");
+
+  function pickModel(next: string) {
+    setModel(next);
+    storeModel(next);
+  }
 
   /* --- session bootstrap: reuse the stored one so a reload keeps context --- */
   useEffect(() => {
@@ -67,6 +78,11 @@ export function Dashboard() {
       api
         .overview()
         .then((data) => alive && setOverview(data))
+        .catch(() => undefined);
+      // Same cadence: it is how the picker learns the GPU machine went up or down.
+      api
+        .models()
+        .then((data) => alive && setCatalog(data))
         .catch(() => undefined);
     };
     load();
@@ -114,7 +130,7 @@ export function Dashboard() {
           setApproval({ run_id: event.run_id, tool: event.tool, args: event.args, risk: "destructive", why: event.why });
           break;
         case "done":
-          patchAssistant((m) => ({ ...m, usage: event.usage, streaming: false }));
+          patchAssistant((m) => ({ ...m, usage: event.usage, model: event.model || undefined, streaming: false }));
           // The overview may have moved: a merge starts a rollout.
           api.overview().then(setOverview).catch(() => undefined);
           break;
@@ -138,8 +154,11 @@ export function Dashboard() {
     setMessages((current) => [...current, { id: `user-${Date.now()}`, role: "user", text }]);
     beginAssistantMessage();
 
-    const stream = streamEvents("/api/chat", { session_id: sessionId, message: text }, handleEvent, (message) =>
-      patchAssistant((m) => ({ ...m, error: message, streaming: false })),
+    const stream = streamEvents(
+      "/api/chat",
+      { session_id: sessionId, message: text, model: activeModel },
+      handleEvent,
+      (message) => patchAssistant((m) => ({ ...m, error: message, streaming: false })),
     );
     await stream.done;
     patchAssistant((m) => ({ ...m, streaming: false }));
@@ -184,6 +203,11 @@ export function Dashboard() {
             busy={busy}
             disabled={!sessionId || llmDown}
             placeholder={llmDown ? "Set ANTHROPIC_API_KEY to enable chat" : undefined}
+            accessory={
+              catalog && (
+                <ModelPicker catalog={catalog} value={activeModel} onChange={pickModel} disabled={busy || llmDown} />
+              )
+            }
           />
         </div>
 

@@ -1,0 +1,38 @@
+# LiteLLM for local development. The cluster's config lives in Home-Lab-Infra
+# (apps/litellm/config.yaml); this one mirrors its conventions — claude-* are
+# Anthropic, local/* are Ollama — which is what Jarvis relies on.
+#
+# After `docker compose --profile gateway up`, create Jarvis's key and put it in
+# .env as ANTHROPIC_API_KEY:
+#
+#   curl -s localhost:4000/key/generate -H 'Authorization: Bearer sk-jarvis-dev' \
+#     -H 'content-type: application/json' -d '{"key_alias": "jarvis-dev"}'
+
+model_list:
+  - model_name: claude-opus-5
+    litellm_params:
+      model: anthropic/claude-opus-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: local/qwen3-30b
+    litellm_params:
+      model: ollama_chat/qwen3:30b
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 120
+      stream_timeout: 30
+
+router_settings:
+  fallbacks:
+    - local/qwen3-30b: [claude-haiku-4-5]
+  # Without this a dead Ollama costs ~5 s of retry backoff on every request.
+  num_retries: 0
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

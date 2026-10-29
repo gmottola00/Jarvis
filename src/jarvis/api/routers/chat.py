@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, AsyncIterator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from jarvis.agent.models import UnknownModelError
 from jarvis.api.deps import Services, services
 from jarvis.api.sse import stream
 from jarvis.core.types import ErrorEvent, new_id
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/api", tags=["chat"])
 class ChatRequest(BaseModel):
     session_id: str = Field(default="", description="Omit to start a new session.")
     message: str
+    model: str = Field(default="", description="A model id from /api/models. Omit for the default.")
 
 
 class SessionResponse(BaseModel):
@@ -69,4 +71,9 @@ async def chat(request: ChatRequest, svc: Services = Depends(services)) -> Any:
 
         return stream(refuse())
 
-    return stream(svc.runner.start(session_id, request.message))
+    try:
+        model = await svc.models.resolve(request.model)
+    except UnknownModelError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return stream(svc.runner.start(session_id, request.message, model=model))

@@ -71,6 +71,32 @@ services:
       - backend
     restart: unless-stopped
 
+  # Optional LLM gateway, same image as the cluster's. Start it with
+  # `docker compose --profile gateway up`, create a key (see docker/litellm.yaml)
+  # and point JARVIS_LLM_GATEWAY_URL at it.
+  litellm:
+    profiles: ["gateway"]
+    image: ghcr.io/berriai/litellm-database:v1.105.1
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      # Own schema in the Jarvis database: no second Postgres, no clash with
+      # the checkpointer tables.
+      DATABASE_URL: postgresql://jarvis:jarvis@postgres:5432/jarvis?schema=litellm
+      LITELLM_MASTER_KEY: sk-jarvis-dev
+      LITELLM_SALT_KEY: sk-jarvis-dev-salt
+      ANTHROPIC_API_KEY: ${LITELLM_ANTHROPIC_API_KEY:-}
+      OLLAMA_API_BASE: ${JARVIS_OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./docker/litellm.yaml:/app/config.yaml:ro
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
   redisdata:
