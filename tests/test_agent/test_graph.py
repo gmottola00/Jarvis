@@ -51,7 +51,9 @@ class TestReadPath:
 
     async def test_write_tool_also_runs_without_asking(self, toy_registry) -> None:
         """Writes reach Git, not the cluster, so they are not gated."""
-        llm = ScriptedLLM([ScriptedLLM.call("toy__draft", {"text": "x"}, risk=RiskLevel.WRITE), ScriptedLLM.say("done")])
+        llm = ScriptedLLM(
+            [ScriptedLLM.call("toy__draft", {"text": "x"}, risk=RiskLevel.WRITE), ScriptedLLM.say("done")]
+        )
         graph = build_graph(llm=llm, registry=toy_registry)
 
         events = await drive(graph, initial_state("t", "write"), "t")

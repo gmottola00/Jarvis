@@ -33,8 +33,27 @@ images:
     newTag: 4f5e74971d3a8b6c05e2f9a71c4d8e30b6a91f27
 """
 
+TRIP_AI_KUSTOMIZATION = """apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - backend.yaml
+  - web.yaml
+  - ingress.yaml
+  - sealed-secret.yaml
+  - ghcr-pull-secret.yaml
+images:
+  - name: ghcr.io/gmottola00/trip-ai-backend
+    newTag: ada2faf9b9ed076927b2c26c0a6d54a6826f3ecd
+  - name: ghcr.io/gmottola00/trip-ai-web
+    newTag: 438f84423e503baa36539934518e08d270dfb7cc
+"""
+"""The app that is fully up to date — the delivery table needs a green row to
+read against the amber ones."""
+
 _FILES: dict[tuple[str, str], str] = {
     ("Home-Lab-Infra", "apps/tickup/kustomization.yaml"): TICKUP_KUSTOMIZATION,
+    ("Home-Lab-Infra", "apps/trip-ai/kustomization.yaml"): TRIP_AI_KUSTOMIZATION,
     ("Home-Lab-Infra", "bootstrap/apps/tickup.yaml"): (
         "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: tickup\n"
         "  namespace: argocd\nspec:\n  project: default\n  source:\n"

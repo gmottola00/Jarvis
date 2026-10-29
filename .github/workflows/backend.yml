@@ -1,0 +1,112 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "README.md"
+      - "docker/backend.Dockerfile"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+
+env:
+  IMAGE: ghcr.io/gmottola00/jarvis-backend
+
+jobs:
+  # The same gate as `make check` locally: format, lint, types, tests. It is
+  # also what turns a commit green, which is what the console's Delivery page
+  # reads to decide whether a build is safe to pin.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --all-extras --locked
+
+      - name: make check
+        run: make check
+
+  build-push-deploy:
+    needs: check
+    # Pull requests are checked, never deployed.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/backend.Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # GitOps CD: bump the image tag in the infra repo; ArgoCD rolls it out.
+      - uses: actions/checkout@v4
+        with:
+          repository: gmottola00/Home-Lab-Infra
+          token: ${{ secrets.INFRA_REPO_TOKEN }}
+          path: infra
+
+      - name: Bump image tag in kustomization
+        working-directory: infra
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # The backend and web workflows push to this repo concurrently, so
+          # re-apply the edit onto a fresh origin/main on every attempt rather
+          # than rebasing (both newTag lines share one diff hunk).
+          for attempt in 1 2 3 4 5; do
+            git fetch --quiet origin main
+            git reset --quiet --hard FETCH_HEAD
+
+            yq -i '(.images[] | select(.name == "ghcr.io/gmottola00/jarvis-backend") | .newTag) = strenv(GITHUB_SHA)' apps/jarvis/kustomization.yaml
+
+            if git diff --quiet -- apps/jarvis/kustomization.yaml; then
+              echo "jarvis-backend already at ${GITHUB_SHA:0:7}, nothing to bump."
+              exit 0
+            fi
+
+            git commit -qam "jarvis-backend: deploy ${GITHUB_SHA:0:7}"
+            if git push --quiet origin HEAD:main; then
+              echo "jarvis-backend bumped to ${GITHUB_SHA:0:7} on attempt ${attempt}."
+              exit 0
+            fi
+            echo "push rejected, retrying (attempt ${attempt}/5)."
+            sleep $(( RANDOM % 3 + attempt ))
+          done
+
+          echo "::error::could not push the jarvis-backend tag bump after 5 attempts"
+          exit 1
