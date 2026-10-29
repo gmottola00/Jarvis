@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApprovalDialog } from "../components/approval/ApprovalDialog";
 import { Composer } from "../components/chat/Composer";
 import { MessageList } from "../components/chat/MessageList";
+import { BudgetMeter } from "../components/chat/BudgetMeter";
 import { ModelPicker } from "../components/chat/ModelPicker";
 import { LabPanel } from "../components/lab/LabPanel";
 import { api, storeModel, storeSession, storedModel, storedSession } from "../lib/api";
@@ -205,7 +206,10 @@ export function Dashboard() {
             placeholder={llmDown ? "Set ANTHROPIC_API_KEY to enable chat" : undefined}
             accessory={
               catalog && (
-                <ModelPicker catalog={catalog} value={activeModel} onChange={pickModel} disabled={busy || llmDown} />
+                <>
+                  {catalog.budget && <BudgetMeter budget={catalog.budget} />}
+                  <ModelPicker catalog={catalog} value={activeModel} onChange={pickModel} disabled={busy || llmDown} />
+                </>
               )
             }
           />

@@ -100,7 +100,8 @@ class TestModels:
         body = (await client.get("/api/models")).json()
 
         assert body["default"] == "claude-opus-5"
-        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True}]
+        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False}]
+        assert body["budget"] is None
 
     @pytest.mark.script([ScriptedLLM.say("Ciao!")])
     async def test_the_chosen_model_reaches_the_llm(self, client: httpx.AsyncClient) -> None:
