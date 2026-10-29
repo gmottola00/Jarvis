@@ -10,8 +10,8 @@ from jarvis.exceptions import ToolNotFoundError
 
 class TestRegistry:
     def test_holds_every_capability(self, registry) -> None:
-        assert set(registry.by_namespace()) == {"github", "argocd", "k8s", "ghcr"}
-        assert len(registry) == 18
+        assert set(registry.by_namespace()) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki"}
+        assert len(registry) == 24
 
     def test_unknown_name_raises(self, registry) -> None:
         with pytest.raises(ToolNotFoundError):

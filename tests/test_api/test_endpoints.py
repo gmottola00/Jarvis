@@ -58,7 +58,7 @@ class TestHealthAndCapabilities:
     async def test_capabilities_describe_the_policy_and_tools(self, client: httpx.AsyncClient) -> None:
         body = (await client.get("/api/capabilities")).json()
         assert body["policy"] == {"read": "auto", "write": "auto (pull request)", "destructive": "confirm"}
-        assert set(body["capabilities"]) == {"github", "argocd", "k8s", "ghcr"}
+        assert set(body["capabilities"]) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki"}
         assert body["fake_tools"] is True
 
 

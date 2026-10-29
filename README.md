@@ -130,6 +130,8 @@ a standalone MCP server an adapter rather than a rewrite.
 | `github` | `read_file` `list_prs` `check_runs` | read |
 | `github` | `create_branch` `commit_file` `open_pr` | write |
 | `github` | `merge_pr` | destructive |
+| `prometheus` | `query` `query_range` `pod_resources` `targets_down` | read |
+| `loki` | `search` `query` | read |
 
 ---
 
@@ -167,6 +169,8 @@ Jarvis starts degraded rather than refusing to boot:
 | capability tokens | that capability's tools return an error naming the variable to set |
 | `JARVIS_LLM_GATEWAY_URL` | Claude only, straight to Anthropic; the model picker is hidden |
 | `JARVIS_OLLAMA_URL` | local models always shown as available; the gateway's fallback still covers a dead GPU |
+| `JARVIS_PROMETHEUS_URL` | `prometheus__*` tools return an error naming the variable; the rest of the agent is unaffected |
+| `JARVIS_LOKI_URL` | `loki__*` tools likewise; `k8s__get_logs` still reads live containers |
 
 ### Models and the LLM gateway
 

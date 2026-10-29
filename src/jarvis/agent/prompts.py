@@ -50,10 +50,38 @@ nginx SPA on :80 that proxies `/api` to it. Both run `replicas: 1`.
 - Images are `ghcr.io/gmottola00/<app>-<component>`, built by GitHub Actions in the \
 app repos and tagged with the full commit SHA. The deployed tag is pinned in \
 `apps/<app>/kustomization.yaml` under `images[].newTag`.
-- Secrets are Sealed Secrets. State lives in Supabase cloud; there is no Postgres, \
-Redis or PVC in the cluster.
-- There is no Prometheus, Grafana or Loki yet. Cluster health comes from the \
-Kubernetes API and ArgoCD, not from metrics.
+- Secrets are Sealed Secrets. The apps keep their state in Supabase cloud, not in \
+the cluster.
+- Observability runs in `monitoring`: kube-prometheus-stack (Prometheus 15 days, \
+Grafana, Alertmanager), Loki (30 days of every container's log, shipped by Alloy \
+with labels `namespace`, `pod`, `container`, `node`, `app`).
+
+# Which source answers what
+
+- Is it synced, healthy, what revision: ArgoCD.
+- What is running right now, why a pod will not start: `k8s__list_pods`, \
+`k8s__list_events`.
+- How much CPU or memory, how close to its limit, how often it restarted: \
+`prometheus__pod_resources`; anything else measurable: `prometheus__query`, and \
+`prometheus__query_range` to tell a leak from a spike.
+- What a container printed: `k8s__get_logs` for the live container; `loki__search` \
+for a past window or a pod that has already been replaced.
+"""
+
+INVESTIGATE_FLOW = """\
+# Investigating a problem
+
+1. Scope it: `argocd__app_health` and `k8s__list_pods` for the app, in one turn.
+2. Why now: `k8s__list_events` for the namespace, and `prometheus__pod_resources` \
+for restarts, memory against the limit and CPU.
+3. What it said: `loki__search` over the window where it went wrong, first for \
+`ERROR`, then wider if that is empty.
+4. What changed: `github__read_file` on `apps/<app>/kustomization.yaml`; a pin \
+that moved recently is the first suspect.
+5. Answer with the cause and the evidence for it — the event, the number, the log \
+line — in a few lines. If the evidence does not settle it, say what is missing.
+6. A fix is a change to Git, proposed as in the deploy flow. Never present one \
+as done before the pull request exists.
 """
 
 DEPLOY_FLOW = """\
@@ -88,7 +116,7 @@ STYLE = """\
 Call the tools you need in one turn when they do not depend on each other; that is \
 faster than one at a time. When something is wrong, find the cause before \
 proposing a fix: a Degraded app usually has a failing pod, and a failing pod \
-usually has an event that says why.
+usually has an event that says why. "Investigating a problem" above is the order to look in.
 """
 
 
@@ -105,7 +133,9 @@ def build_system(*, extra: str = "") -> list[dict[str, Any]]:
     Returns:
         A list of system content blocks ready to pass as ``system=``.
     """
-    text = "\n\n".join(part for part in (IDENTITY, HARD_RULE, LAB, DEPLOY_FLOW, GATES, STYLE, extra) if part.strip())
+    text = "\n\n".join(
+        part for part in (IDENTITY, HARD_RULE, LAB, DEPLOY_FLOW, INVESTIGATE_FLOW, GATES, STYLE, extra) if part.strip()
+    )
     return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
@@ -124,6 +154,7 @@ __all__ = [
     "GATES",
     "HARD_RULE",
     "IDENTITY",
+    "INVESTIGATE_FLOW",
     "LAB",
     "ROUTER_SYSTEM",
     "STYLE",

@@ -22,12 +22,12 @@ from __future__ import annotations
 
 from types import ModuleType
 
-from jarvis.tools import argocd, ghcr, github, k8s
+from jarvis.tools import argocd, ghcr, github, k8s, loki, prometheus
 from jarvis.tools.base import ToolSpec, tool
 from jarvis.tools.provider import ClientProvider
 from jarvis.tools.registry import ToolRegistry
 
-CAPABILITIES: list[ModuleType] = [github, argocd, k8s, ghcr]
+CAPABILITIES: list[ModuleType] = [github, argocd, k8s, ghcr, prometheus, loki]
 """Every capability Jarvis can use. Append here to add one."""
 
 

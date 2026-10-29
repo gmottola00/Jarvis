@@ -92,6 +92,13 @@ class Settings(BaseSettings):
     kubeconfig: str | None = None
     """Path to a kubeconfig. Unset falls back to in-cluster config, then to fakes."""
 
+    # --- Capabilities: observability ----------------------------------------
+    prometheus_url: str | None = None
+    """kube-prometheus-stack's Prometheus, e.g. ``http://kube-prometheus-stack-prometheus.monitoring:9090``."""
+
+    loki_url: str | None = None
+    """Loki's HTTP API, e.g. ``http://loki.monitoring:3100``."""
+
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]
     log_level: str = "INFO"
