@@ -229,3 +229,28 @@ class TestModelChoice:
         await drive(graph, initial_state("t", "second"), "t")
 
         assert [r["model"] for r in llm.requests] == ["local/qwen3-30b", None]
+
+
+class TestObservability:
+    async def test_an_investigation_reads_metrics_and_logs_without_asking(self, registry) -> None:
+        """Metrics and stored logs are reads: an investigation never stops at the gate."""
+        llm = ScriptedLLM(
+            [
+                ScriptedLLM.call_many(
+                    [
+                        ("prometheus__pod_resources", {"namespace": "tickup", "pod": "tickup-backend"}),
+                        ("loki__search", {"namespace": "tickup", "contains": "memory high", "minutes": 120}),
+                    ]
+                ),
+                ScriptedLLM.say("tickup-backend is OOMKilled: its leaderboard cache never evicts."),
+            ]
+        )
+        graph = build_graph(llm=llm, registry=registry)
+
+        events = await drive(graph, initial_state("t", "why does tickup restart?"), "t")
+
+        assert "approval_required" not in [e["type"] for e in events]
+        results = blocks_of(await state_of(graph, "t"), "tool_result")
+        text = " ".join(str(r["content"]) for r in results)
+        assert "97%" in text and "rss=498Mi" in text
+        assert not any(r.get("is_error") for r in results)

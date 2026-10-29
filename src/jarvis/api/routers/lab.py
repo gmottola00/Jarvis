@@ -11,14 +11,15 @@ raised: one unreachable upstream degrades one card, it does not blank the page.
 from __future__ import annotations
 
 import asyncio
-from typing import Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, Callable, TypeVar
 
 from fastapi import APIRouter, Depends
 
 from jarvis.api.deps import Services, services
 from jarvis.core.types import LabOverview
+from jarvis.exceptions import ConfigurationError
 from jarvis.logging import get_logger
-from jarvis.tools import argocd, k8s
+from jarvis.tools import alertmanager, argocd, k8s
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["lab"])
@@ -36,26 +37,44 @@ async def _attempt(name: str, call: Callable[[], Awaitable[T]], errors: dict[str
         return None
 
 
+async def _firing_alerts() -> list[Any]:
+    """Firing alerts, or none when Alertmanager is not configured.
+
+    Alerts are an addition to the overview, not part of what makes the lab
+    healthy: an install without Alertmanager must not show "needs attention"
+    forever because of a setting it never meant to have.
+    """
+    try:
+        client = alertmanager.provider.get()
+    except ConfigurationError:
+        return []
+    alerts: list[Any] = await client.alerts()
+    return alerts
+
+
 @router.get("/lab/overview", response_model=LabOverview)
 async def overview(svc: Services = Depends(services)) -> LabOverview:
-    """Cluster nodes, ArgoCD applications and anything unhealthy, in one call."""
+    """Cluster nodes, ArgoCD applications, anything unhealthy and the alert count, in one call."""
     errors: dict[str, str] = {}
 
-    nodes, apps, pods = await asyncio.gather(
+    nodes, apps, pods, alerts = await asyncio.gather(
         _attempt("k8s.nodes", lambda: k8s.provider.get().list_nodes(), errors),
         _attempt("argocd.apps", lambda: argocd.provider.get().list_apps(), errors),
         _attempt("k8s.pods", lambda: k8s.provider.get().unhealthy_pods(), errors),
+        _attempt("alertmanager.alerts", _firing_alerts, errors),
     )
 
     result = LabOverview(
         nodes=nodes or [],
         apps=apps or [],
         unhealthy_pods=pods or [],
+        firing_alerts=len(alerts or []),
         errors=errors,
     )
     result.degraded = bool(
         errors
         or result.unhealthy_pods
+        or result.firing_alerts
         or any(not n.ready for n in result.nodes)
         or any(a.health != "Healthy" or a.sync != "Synced" for a in result.apps)
     )

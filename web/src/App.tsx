@@ -4,16 +4,19 @@ import { LearnModeProvider, useLearnMode } from "./lib/hooks/useLearnMode";
 import { Cluster } from "./pages/Cluster";
 import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
+import { Alerts } from "./pages/Alerts";
 
 /**
  * Two halves: the agent (chat, runs) *decides and changes*; the console
- * (cluster, delivery) *looks*, with no model involved.
+ * (cluster, delivery, alerts) *looks*, with no model involved — until a
+ * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
   { id: "dashboard", label: "agent" },
   { id: "runs", label: "runs" },
   { id: "cluster", label: "cluster" },
   { id: "delivery", label: "delivery" },
+  { id: "alerts", label: "alerts" },
 ] as const;
 
 type Tab = (typeof TABS)[number]["id"];
@@ -81,6 +84,7 @@ function Shell() {
         {tab === "runs" && <RunTimeline />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}
+        {tab === "alerts" && <Alerts />}
       </main>
     </div>
   );

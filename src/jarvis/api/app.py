@@ -25,7 +25,7 @@ from jarvis.agent.llm import AnthropicLLM
 from jarvis.agent.models import ModelCatalog
 from jarvis.agent.runner import JarvisRunner
 from jarvis.api.deps import Services
-from jarvis.api.routers import approvals, chat, console, delivery, health, lab, runs
+from jarvis.api.routers import alerts, approvals, chat, console, delivery, health, lab, runs
 from jarvis.core.policy import PolicyGate
 from jarvis.logging import configure_logging, get_logger
 from jarvis.memory.session import build_session_store
@@ -135,7 +135,7 @@ def create_app(*, llm: Any = None) -> FastAPI:
         allow_headers=["*"],
     )
     # The console routers come before the SPA mount, which claims everything else.
-    for module in (health, chat, approvals, lab, runs, console, delivery):
+    for module in (health, chat, approvals, lab, runs, console, delivery, alerts):
         app.include_router(module.router)
 
     _mount_spa(app)

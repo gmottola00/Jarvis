@@ -6,6 +6,7 @@ import { BudgetMeter } from "../components/chat/BudgetMeter";
 import { ModelPicker } from "../components/chat/ModelPicker";
 import { LabPanel } from "../components/lab/LabPanel";
 import { api, storeModel, storeSession, storedModel, storedSession } from "../lib/api";
+import { clearHandoff, pendingHandoff } from "../lib/handoff";
 import { streamEvents } from "../lib/sse";
 import type { Capabilities, LabOverview, Message, ModelCatalog, PendingApproval, RunEvent } from "../lib/types";
 
@@ -28,6 +29,9 @@ export function Dashboard() {
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
   const [model, setModel] = useState<string>(() => storedModel() ?? "");
 
+  /** A prompt handed over by a console page, waiting for its fresh session. */
+  const [handoff, setHandoff] = useState<string | null>(null);
+
   const assistantId = useRef<string | null>(null);
 
   // A remembered model the gateway no longer offers falls back to the default.
@@ -42,6 +46,17 @@ export function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // A handoff ("Investigate" on the alerts page) gets its own conversation.
+      const handed = pendingHandoff();
+      if (handed) {
+        const fresh = await api.newSession();
+        if (cancelled) return;
+        storeSession(fresh);
+        setSessionId(fresh);
+        setHandoff(handed);
+        return;
+      }
+
       const existing = storedSession();
       if (existing) {
         try {
@@ -184,6 +199,16 @@ export function Dashboard() {
     patchAssistant((m) => ({ ...m, streaming: false }));
     setBusy(false);
   }
+
+  /* --- send a handed-over prompt once its session exists ------------------ */
+  useEffect(() => {
+    if (!handoff || !sessionId) return;
+    clearHandoff();
+    setHandoff(null);
+    void send(handoff);
+    // `send` is deliberately not a dependency: it changes every render, and this
+    // must fire once per handoff, not once per render.
+  }, [handoff, sessionId]);
 
   const llmDown = capabilities !== null && !capabilities.llm_ready;
 

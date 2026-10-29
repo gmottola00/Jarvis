@@ -53,6 +53,8 @@ export interface LabOverview {
   nodes: NodeStatus[];
   apps: ArgoAppStatus[];
   unhealthy_pods: PodStatus[];
+  /** Active alerts, heartbeats and silenced ones excluded. */
+  firing_alerts: number;
   degraded: boolean;
   errors: Record<string, string>;
   fetched_at: string;

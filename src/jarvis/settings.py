@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     github_infra_repo: str = "Home-Lab-Infra"
     github_api_url: str = "https://api.github.com"
 
+    replicas_apps: list[str] = ["tickup", "trip-ai"]
+    """Apps whose replica count ``github__set_replicas`` may change, through a pull request.
+
+    Everything else — the platform, LiteLLM, Jarvis itself — is off limits, so a
+    model cannot propose switching off the things the lab needs to recover.
+    """
+
     # --- Capabilities: ArgoCD ------------------------------------------------
     argocd_base_url: str | None = None
     argocd_token: SecretStr | None = None
@@ -91,6 +98,16 @@ class Settings(BaseSettings):
     # --- Capabilities: Kubernetes -------------------------------------------
     kubeconfig: str | None = None
     """Path to a kubeconfig. Unset falls back to in-cluster config, then to fakes."""
+
+    # --- Capabilities: observability ----------------------------------------
+    prometheus_url: str | None = None
+    """kube-prometheus-stack's Prometheus, e.g. ``http://kube-prometheus-stack-prometheus.monitoring:9090``."""
+
+    loki_url: str | None = None
+    """Loki's HTTP API, e.g. ``http://loki.monitoring:3100``."""
+
+    alertmanager_url: str | None = None
+    """Alertmanager's API, e.g. ``http://kube-prometheus-stack-alertmanager.monitoring:9093``."""
 
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]

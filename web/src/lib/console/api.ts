@@ -1,6 +1,8 @@
 /** REST calls for the console. No model involved: every one of these is a plain read. */
 
 import type {
+  AlertBrief,
+  AlertsOverview,
   ClusterSnapshot,
   DeliveryOverview,
   EventRecord,
@@ -39,6 +41,10 @@ export const consoleApi = {
     get<Record<string, unknown>>(`/api/k8s/manifest/${kind}/${seg(namespace)}/${seg(name)}`),
 
   delivery: () => get<DeliveryOverview>("/api/delivery/overview"),
+
+  alerts: (includeSilenced = false) => get<AlertsOverview>(`/api/alerts?include_silenced=${includeSilenced}`),
+  /** The investigation prompt for one alert — what the "Investigate" button sends to the agent. */
+  alertBrief: (fingerprint: string) => get<AlertBrief>(`/api/alerts/${seg(fingerprint)}/brief`),
 };
 
 /** URL of the SSE log stream. A GET, so the browser's own `EventSource` can read it. */

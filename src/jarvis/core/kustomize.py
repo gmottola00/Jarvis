@@ -150,4 +150,129 @@ def replace_tag(text: str, image: str, new_tag: str) -> str:
     raise ValueError(f"{image!r} has no newTag pin in this kustomization")
 
 
-__all__ = ["ImagePin", "parse_images", "replace_tag"]
+def _block(lines: list[str], key: str) -> tuple[int, int, int] | None:
+    """Locate a top-level list block: ``(header index, end index, header indent)``.
+
+    The end is the first line after the block's last non-blank line, so an
+    insertion there lands inside the block and above any trailing blank lines.
+    """
+    start = -1
+    indent = 0
+    end = len(lines)
+    last = -1
+    for index, raw in enumerate(lines):
+        line = raw.rstrip("\n")
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        pair = _KEY_VALUE.match(line)
+        if start < 0:
+            if pair and pair.group(2) == key and not _clean(pair.group(3)):
+                start, indent, last = index, len(pair.group(1)), index
+            continue
+        if pair and len(pair.group(1)) <= indent and not line.lstrip().startswith("-"):
+            end = index
+            break
+        last = index
+    if start < 0:
+        return None
+    return start, min(end, last + 1), indent
+
+
+def parse_replicas(text: str) -> dict[str, int]:
+    """Return the ``replicas:`` overrides in a kustomization, by Deployment name.
+
+    Example:
+        >>> parse_replicas("replicas:\\n  - name: tickup-backend\\n    count: 0\\n")
+        {'tickup-backend': 0}
+    """
+    lines = text.splitlines(keepends=True)
+    located = _block(lines, "replicas")
+    if located is None:
+        return {}
+    start, end, _ = located
+    out: dict[str, int] = {}
+    current: dict[str, str] = {}
+
+    def flush() -> None:
+        if current.get("name") and current.get("count", "").isdigit():
+            out[current["name"]] = int(current["count"])
+        current.clear()
+
+    for raw in lines[start + 1 : end]:
+        line = raw.rstrip("\n")
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        item = _LIST_ITEM.match(line)
+        if item:
+            flush()
+            line = item.group(2)
+        if (pair := _KEY_VALUE.match(line)) is not None:
+            current[pair.group(2)] = _clean(pair.group(3))
+    flush()
+    return out
+
+
+def set_replicas(text: str, name: str, count: int) -> str:
+    """Return the file with a ``replicas:`` override for one Deployment set to ``count``.
+
+    Same line-edit discipline as :func:`replace_tag`: an existing entry has only
+    its ``count`` line rewritten, a new entry is appended to the existing block,
+    and a file with no block gets one at the end. Comments and the rest of the
+    file are left exactly as they were.
+
+    Args:
+        text: The current file.
+        name: The Deployment name, e.g. ``tickup-backend``.
+        count: Replicas to run. ``0`` stops the workload.
+
+    Raises:
+        ValueError: ``count`` is negative.
+    """
+    if count < 0:
+        raise ValueError("replica count cannot be negative")
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith("\n"):
+        lines[-1] += "\n"
+
+    located = _block(lines, "replicas")
+    if located is None:
+        return "".join(lines) + f"replicas:\n  - name: {name}\n    count: {count}\n"
+    start, end, _ = located
+
+    # Split the block into items, each a range of line indices starting at its "- ".
+    items: list[list[int]] = []
+    item_indent = "  "
+    for index in range(start + 1, end):
+        line = lines[index].rstrip("\n")
+        if (item := _LIST_ITEM.match(line)) is not None:
+            item_indent = item.group(1)
+            items.append([index])
+        elif items and line.strip() and not line.lstrip().startswith("#"):
+            items[-1].append(index)
+
+    for item_lines in items:
+        keys: dict[str, int] = {}
+        for index in item_lines:
+            line = lines[index].rstrip("\n")
+            if (item := _LIST_ITEM.match(line)) is not None:
+                line = item.group(1) + "  " + item.group(2)
+            if (pair := _KEY_VALUE.match(line)) is not None:
+                keys[pair.group(2)] = index
+        name_at = keys.get("name")
+        if name_at is None or _clean(lines[name_at].split(":", 1)[1]) != name:
+            continue
+        if "count" in keys:
+            at = keys["count"]
+            prefix = lines[at][: len(lines[at]) - len(lines[at].lstrip())]
+            if lines[at].lstrip().startswith("-"):
+                prefix += "- "
+            lines[at] = f"{prefix}count: {count}\n"
+        else:
+            lines.insert(item_lines[-1] + 1, f"{item_indent}  count: {count}\n")
+        return "".join(lines)
+
+    entry = f"{item_indent}- name: {name}\n{item_indent}  count: {count}\n"
+    return "".join(lines[:end]) + entry + "".join(lines[end:])
+
+
+__all__ = ["ImagePin", "parse_images", "parse_replicas", "replace_tag", "set_replicas"]

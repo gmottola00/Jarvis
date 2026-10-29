@@ -235,6 +235,9 @@ class LabOverview(BaseModel):
     nodes: list[NodeStatus] = Field(default_factory=list)
     apps: list[ArgoAppStatus] = Field(default_factory=list)
     unhealthy_pods: list[PodStatus] = Field(default_factory=list)
+    firing_alerts: int = 0
+    """Active alerts, heartbeats and silenced ones excluded."""
+
     degraded: bool = False
     """True when anything needs attention — drives the header badge."""
 

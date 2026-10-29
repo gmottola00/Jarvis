@@ -152,6 +152,15 @@ export const LESSONS = {
       "the Deployment then rolls out a new ReplicaSet. Git is the only control knob.",
     kubectl: "kubectl -n argocd get applications",
   },
+  alerts: {
+    title: "Alerts",
+    body:
+      "Prometheus evaluates alert rules every few seconds; a rule whose expression stays true for its `for:` window fires " +
+      "and is sent to Alertmanager, which deduplicates, groups and applies silences. Here Alertmanager has no receivers, " +
+      "so nothing pages anyone — this page is where alerts are seen. Watchdog always fires on purpose: it proves the " +
+      "pipeline works, so it is hidden.",
+    kubectl: "kubectl -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093",
+  },
 } satisfies Record<string, Lesson>;
 
 export type Topic = keyof typeof LESSONS;
