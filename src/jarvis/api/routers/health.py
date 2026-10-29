@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -26,6 +27,7 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
     """
     return {
         "model": svc.settings.model,
+        "gateway": bool(svc.settings.llm_gateway_url),
         "llm_ready": svc.llm_ready,
         "fake_tools": svc.settings.fake_tools,
         "durable": bool(svc.settings.database_url),
@@ -38,4 +40,18 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
             namespace: [{"name": spec.name, "risk": spec.risk.value, "description": spec.description} for spec in specs]
             for namespace, specs in svc.registry.by_namespace().items()
         },
+    }
+
+
+@router.get("/api/models")
+async def models(svc: Services = Depends(services)) -> dict[str, Any]:
+    """The models the chat can pick from, and whether the local ones are up.
+
+    A local model shown as unavailable still works when picked: the run is
+    answered by ``fallback`` instead.
+    """
+    return {
+        "default": svc.models.default,
+        "fallback": svc.settings.local_fallback_model,
+        "models": [asdict(m) for m in await svc.models.entries()],
     }

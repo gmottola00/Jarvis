@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from jarvis.agent.checkpointer import checkpointer
 from jarvis.agent.graph import build_graph
 from jarvis.agent.llm import AnthropicLLM
+from jarvis.agent.models import ModelCatalog
 from jarvis.agent.runner import JarvisRunner
 from jarvis.api.deps import Services
 from jarvis.api.routers import approvals, chat, console, delivery, health, lab, runs
@@ -53,6 +54,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async with AsyncExitStack() as stack:
         saver = await stack.enter_async_context(checkpointer(settings))
+        models = ModelCatalog(settings)
+        stack.push_async_callback(models.aclose)
 
         llm: Any = getattr(app.state, "llm_override", None)
         if llm is None:
@@ -84,12 +87,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             sessions=sessions,
             audit=audit,
             llm_ready=llm is not None,
+            models=models,
         )
 
         logger.info(
             "jarvis.ready",
             tools=len(registry),
             model=settings.model,
+            gateway=bool(settings.llm_gateway_url),
             fake_tools=settings.fake_tools,
             durable=bool(settings.database_url),
         )

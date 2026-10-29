@@ -180,6 +180,8 @@ class DoneEvent(BaseModel):
     type: Literal["done"] = "done"
     run_id: str
     usage: Usage = Field(default_factory=Usage)
+    model: str = ""
+    """The model that gave the final answer."""
 
 
 class ErrorEvent(BaseModel):

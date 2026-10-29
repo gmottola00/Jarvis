@@ -1,6 +1,6 @@
 /** REST calls. Everything streaming lives in `sse.ts`. */
 
-import type { Capabilities, LabOverview, PendingApproval, RunDetail, RunSummary } from "./types";
+import type { Capabilities, LabOverview, ModelCatalog, PendingApproval, RunDetail, RunSummary } from "./types";
 
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: { accept: "application/json" } });
@@ -10,6 +10,7 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   capabilities: () => get<Capabilities>("/api/capabilities"),
+  models: () => get<ModelCatalog>("/api/models"),
   overview: () => get<LabOverview>("/api/lab/overview"),
   runs: (limit = 50) => get<RunSummary[]>(`/api/runs?limit=${limit}`),
   run: (runId: string) => get<RunDetail>(`/api/runs/${runId}`),
@@ -47,5 +48,24 @@ export function storeSession(sessionId: string): void {
     localStorage.setItem(SESSION_KEY, sessionId);
   } catch {
     /* private window, blocked storage - the app works, it just forgets */
+  }
+}
+
+/** The picked model survives reloads too; a stale id falls back to the default. */
+const MODEL_KEY = "jarvis.model";
+
+export function storedModel(): string | null {
+  try {
+    return localStorage.getItem(MODEL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeModel(model: string): void {
+  try {
+    localStorage.setItem(MODEL_KEY, model);
+  } catch {
+    /* as above */
   }
 }

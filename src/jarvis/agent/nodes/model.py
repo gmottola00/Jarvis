@@ -52,10 +52,12 @@ def make_model_node(*, llm: LLM, registry: ToolRegistry, effort: str = "high", m
             tools=tools,
             effort=_EFFORT_FOR_ROUTE.get(route, effort),
             emit=emit,
+            model=state.get("model") or None,
         )
 
         logger.info(
             "model.turn",
+            model=turn.model,
             stop_reason=turn.stop_reason,
             tool_calls=[c.name for c in turn.tool_calls],
             output_tokens=turn.usage.output_tokens,
@@ -67,6 +69,7 @@ def make_model_node(*, llm: LLM, registry: ToolRegistry, effort: str = "high", m
             "pending": turn.tool_calls,
             "steps": steps + 1,
             "usage": turn.usage,
+            "served_by": turn.model,
         }
 
         if turn.stop_reason == "refusal":

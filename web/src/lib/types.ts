@@ -14,7 +14,7 @@ export type RunEvent =
   | { type: "tool_call"; id: string; name: string; args: Record<string, unknown>; risk: RiskLevel }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; duration_ms: number }
   | { type: "approval_required"; run_id: string; tool: string; args: Record<string, unknown>; why: string }
-  | { type: "done"; run_id: string; usage: Usage }
+  | { type: "done"; run_id: string; usage: Usage; model: string }
   | { type: "error"; message: string };
 
 export interface Usage {
@@ -60,11 +60,25 @@ export interface LabOverview {
 
 export interface Capabilities {
   model: string;
+  gateway: boolean;
   llm_ready: boolean;
   fake_tools: boolean;
   durable: boolean;
   policy: { read: string; write: string; destructive: string };
   capabilities: Record<string, { name: string; risk: RiskLevel; description: string }[]>;
+}
+
+export interface ModelOption {
+  id: string;
+  provider: "anthropic" | "local";
+  /** False for a local model while the GPU machine is off: picking it still works, `fallback` answers. */
+  available: boolean;
+}
+
+export interface ModelCatalog {
+  default: string;
+  fallback: string;
+  models: ModelOption[];
 }
 
 export interface PendingApproval {
@@ -119,6 +133,8 @@ export interface Message {
   thinking?: string;
   tools?: ToolCallView[];
   usage?: Usage;
+  /** The model that actually answered - after a fallback, not the one picked. */
+  model?: string;
   error?: string;
   streaming?: boolean;
 }

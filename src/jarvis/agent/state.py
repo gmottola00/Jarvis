@@ -40,6 +40,12 @@ class JarvisState(TypedDict, total=False):
     route: str
     """``chitchat`` | ``question`` | ``action`` — set by the router, read by the model node."""
 
+    model: str
+    """Model this run asked for. Empty means the configured default."""
+
+    served_by: str
+    """Model that produced the last turn; differs from ``model`` after a gateway fallback."""
+
     pending: list[ToolCall]
     """Tool calls the model asked for and the gate has not yet cleared."""
 

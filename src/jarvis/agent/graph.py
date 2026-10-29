@@ -87,7 +87,12 @@ def build_graph(
 
 
 def initial_state(
-    session_id: str, message: str, *, run_id: str | None = None, history: list[dict[str, Any]] | None = None
+    session_id: str,
+    message: str,
+    *,
+    run_id: str | None = None,
+    history: list[dict[str, Any]] | None = None,
+    model: str = "",
 ) -> JarvisState:
     """Build the state a new run starts from.
 
@@ -96,12 +101,15 @@ def initial_state(
         message: What the user just said.
         run_id: Override the generated run id.
         history: Prior turns, already in Anthropic wire format.
+        model: Model for this run. Empty means the configured default.
     """
     return JarvisState(
         session_id=session_id,
         run_id=run_id or new_id("run"),
         messages=[*(history or []), {"role": "user", "content": message}],
         route="question",
+        model=model,
+        served_by="",
         pending=[],
         approved=[],
         denied=[],

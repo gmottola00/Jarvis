@@ -37,12 +37,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # --- Anthropic -----------------------------------------------------------
+    # --- Model ---------------------------------------------------------------
     anthropic_api_key: SecretStr | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    """The real Anthropic key, or the gateway's virtual key when ``llm_gateway_url`` is set."""
+
     model: str = "claude-opus-5"
+    """Default model; the dashboard can pick another per message."""
+
     router_model: str = "claude-haiku-4-5"
     max_tokens: int = 64000
     effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+
+    llm_gateway_url: str | None = None
+    """LiteLLM proxy base URL. Unset means Claude only, straight to Anthropic."""
+
+    ollama_url: str | None = None
+    """Ollama behind the gateway, probed only to tell whether the GPU machine is on."""
+
+    local_fallback_model: str = "claude-haiku-4-5"
+    """Answers instead of a local model while the GPU machine is off."""
 
     # --- Behaviour -----------------------------------------------------------
     fake_tools: bool = False

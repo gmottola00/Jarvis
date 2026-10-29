@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import Request
 
+from jarvis.agent.models import ModelCatalog
 from jarvis.core.policy import PolicyGate
 from jarvis.observability.audit import AuditLog
 from jarvis.settings import Settings
@@ -30,6 +31,8 @@ class Services:
     audit: AuditLog
     llm_ready: bool
     """False when no API key is configured: the dashboard works, chat explains why."""
+
+    models: ModelCatalog
 
 
 def services(request: Request) -> Services:
