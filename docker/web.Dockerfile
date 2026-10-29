@@ -9,5 +9,8 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY --from=build /web/dist /usr/share/nginx/html
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# Templates in /etc/nginx/templates are rendered with envsubst into conf.d on
+# start, so one image works wherever the backend's name differs.
+COPY docker/nginx.conf /etc/nginx/templates/default.conf.template
+ENV BACKEND_UPSTREAM=backend:8000
 EXPOSE 80
