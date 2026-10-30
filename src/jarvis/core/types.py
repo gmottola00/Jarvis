@@ -182,6 +182,8 @@ class DoneEvent(BaseModel):
     usage: Usage = Field(default_factory=Usage)
     model: str = ""
     """The model that gave the final answer."""
+    requested_model: str = ""
+    """The model the run asked for; differs from ``model`` if the gateway swapped it."""
 
 
 class ErrorEvent(BaseModel):
@@ -189,8 +191,23 @@ class ErrorEvent(BaseModel):
     message: str
 
 
+class ModelUnavailableEvent(BaseModel):
+    """The picked local model is offline. Nothing ran; resend with consent to use ``fallback``."""
+
+    type: Literal["model_unavailable"] = "model_unavailable"
+    requested: str
+    fallback: str
+
+
 RunEvent = Annotated[
-    ThinkingEvent | TokenEvent | ToolCallEvent | ToolResultEvent | ApprovalRequiredEvent | DoneEvent | ErrorEvent,
+    ThinkingEvent
+    | TokenEvent
+    | ToolCallEvent
+    | ToolResultEvent
+    | ApprovalRequiredEvent
+    | DoneEvent
+    | ErrorEvent
+    | ModelUnavailableEvent,
     Field(discriminator="type"),
 ]
 

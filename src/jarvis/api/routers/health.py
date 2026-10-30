@@ -47,8 +47,9 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
 async def models(svc: Services = Depends(services)) -> dict[str, Any]:
     """The models the chat can pick from, and whether the local ones are up.
 
-    A local model shown as unavailable still works when picked: the run is
-    answered by ``fallback`` instead.
+    Picking a local model shown as unavailable needs the user's consent: the
+    chat answers ``model_unavailable`` until it is resent with ``allow_fallback``,
+    and only then does ``fallback`` answer.
     """
     return {
         "default": svc.models.default,

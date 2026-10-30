@@ -13,8 +13,10 @@ import httpx
 import pytest
 
 from jarvis.agent.llm import ScriptedLLM
+from jarvis.agent.models import ModelCatalog
 from jarvis.api.app import create_app
 from jarvis.core.types import RiskLevel
+from jarvis.settings import Settings
 
 
 async def read_sse(client: httpx.AsyncClient, url: str, payload: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -150,6 +152,50 @@ class TestModels:
 
         assert response.status_code == 400
         assert client.llm.requests == []  # type: ignore[attr-defined]
+
+
+def gpu_off(request: httpx.Request) -> httpx.Response:
+    """A gateway offering one local model, and an Ollama that does not answer."""
+    if request.url.host == "litellm":
+        return httpx.Response(200, json={"data": [{"id": "local/qwen3-30b"}, {"id": "claude-haiku-4-5"}]})
+    raise httpx.ConnectTimeout("no route")
+
+
+class TestLocalModelOffline:
+    @pytest.fixture
+    def offline(self, client: httpx.AsyncClient) -> httpx.AsyncClient:
+        settings = Settings(
+            ANTHROPIC_API_KEY="sk-virtual", llm_gateway_url="http://litellm:4000", ollama_url="http://ollama:11434"
+        )
+        app = client._transport.app  # type: ignore[attr-defined]
+        app.state.services.models = ModelCatalog(settings, transport=httpx.MockTransport(gpu_off))
+        return client
+
+    @pytest.mark.script([ScriptedLLM.say("Ciao!")])
+    async def test_without_consent_nothing_runs(self, offline: httpx.AsyncClient) -> None:
+        session = (await offline.post("/api/sessions")).json()["session_id"]
+
+        events = await read_sse(
+            offline, "/api/chat", {"session_id": session, "message": "ciao", "model": "local/qwen3-30b"}
+        )
+
+        assert events == [
+            (
+                "model_unavailable",
+                {"type": "model_unavailable", "requested": "local/qwen3-30b", "fallback": "claude-haiku-4-5"},
+            )
+        ]
+        assert offline.llm.requests == []  # type: ignore[attr-defined]
+        assert (await offline.get(f"/api/sessions/{session}")).json()["turns"] == []
+
+    @pytest.mark.script([ScriptedLLM.say("Ciao!")])
+    async def test_with_consent_the_fallback_answers(self, offline: httpx.AsyncClient) -> None:
+        payload = {"message": "ciao", "model": "local/qwen3-30b", "allow_fallback": True}
+
+        events = await read_sse(offline, "/api/chat", payload)
+
+        assert names(events) == ["token", "done"]
+        assert offline.llm.requests[0]["model"] == "claude-haiku-4-5"  # type: ignore[attr-defined]
 
 
 class TestApprovalFlow:

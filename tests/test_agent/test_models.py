@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.agent.models import MODELS_TTL, PROBE_TTL, ModelCatalog, UnknownModelError
+from jarvis.agent.models import MODELS_TTL, PROBE_TTL, ModelCatalog, ModelUnavailableError, UnknownModelError
 from jarvis.settings import Settings
 
 GATEWAY = "http://litellm:4000"
@@ -101,9 +101,19 @@ class TestResolve:
     async def test_a_local_model_is_used_while_the_gpu_is_on(self, lab: Lab, clock: Clock) -> None:
         assert await catalog(lab, clock).resolve("local/qwen3-30b") == "local/qwen3-30b"
 
-    async def test_gpu_off_goes_straight_to_the_fallback(self, lab: Lab, clock: Clock) -> None:
+    async def test_gpu_off_is_refused_without_consent(self, lab: Lab, clock: Clock) -> None:
         lab.gpu_on = False
-        assert await catalog(lab, clock).resolve("local/qwen3-30b") == "claude-haiku-4-5"
+        with pytest.raises(ModelUnavailableError) as exc:
+            await catalog(lab, clock).resolve("local/qwen3-30b")
+        assert (exc.value.requested, exc.value.fallback) == ("local/qwen3-30b", "claude-haiku-4-5")
+
+    async def test_gpu_off_with_consent_goes_to_the_fallback(self, lab: Lab, clock: Clock) -> None:
+        lab.gpu_on = False
+        assert await catalog(lab, clock).resolve("local/qwen3-30b", allow_fallback=True) == "claude-haiku-4-5"
+
+    async def test_claude_never_needs_consent(self, lab: Lab, clock: Clock) -> None:
+        lab.gpu_on = False
+        assert await catalog(lab, clock).resolve("claude-opus-5") == "claude-opus-5"
 
     async def test_the_probe_is_cached_then_repeated(self, lab: Lab, clock: Clock) -> None:
         models = catalog(lab, clock)
@@ -114,5 +124,5 @@ class TestResolve:
         lab.gpu_on = False
         clock.now += PROBE_TTL + 1
 
-        assert await models.resolve("local/qwen3-30b") == "claude-haiku-4-5"
+        assert await models.resolve("local/qwen3-30b", allow_fallback=True) == "claude-haiku-4-5"
         assert lab.calls.count("/api/tags") == 2

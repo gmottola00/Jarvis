@@ -4,16 +4,18 @@ The gateway is the source of truth for the list: ``/v1/models`` with Jarvis's
 virtual key returns exactly the models that key may call. Without a gateway the
 list is just the configured default.
 
-Local models live on a desktop that is not always on. The gateway would fall
-back to Claude by itself, but only after its first-token timeout, so the
-catalog probes Ollama directly — a cheap ``/api/tags`` with a short timeout,
-cached — and a run that asked for a local model while the machine is off goes
-straight to the fallback model instead.
+Local models live on a desktop that is not always on. The catalog probes
+Ollama directly — a cheap ``/api/tags`` with a short timeout, cached — and a run
+that asked for a local model while the machine is off is refused with
+:class:`ModelUnavailableError` until the user agrees to the fallback model. A
+user who picked a local model never gets Claude without being asked.
 
 Example:
-    >>> catalog = ModelCatalog(settings)                     # doctest: +SKIP
-    >>> await catalog.resolve("local/qwen3-30b")             # doctest: +SKIP
-    'claude-haiku-4-5'  # the GPU machine is off
+    >>> catalog = ModelCatalog(settings)                                      # doctest: +SKIP
+    >>> await catalog.resolve("local/qwen3-30b")                              # doctest: +SKIP
+    ModelUnavailableError  # the GPU machine is off
+    >>> await catalog.resolve("local/qwen3-30b", allow_fallback=True)         # doctest: +SKIP
+    'claude-haiku-4-5'
 """
 
 from __future__ import annotations
@@ -46,6 +48,20 @@ class ModelInfo:
 
 class UnknownModelError(ValueError):
     """The requested model is not one this Jarvis may use."""
+
+
+class ModelUnavailableError(RuntimeError):
+    """A local model was requested while the GPU machine is off.
+
+    Args:
+        requested: The local model the user picked.
+        fallback: The model that would answer if the user agrees.
+    """
+
+    def __init__(self, requested: str, fallback: str) -> None:
+        super().__init__(f"{requested} is unavailable: the GPU machine does not answer")
+        self.requested = requested
+        self.fallback = fallback
 
 
 class ModelCatalog:
@@ -85,11 +101,18 @@ class ModelCatalog:
             for i in ids
         ]
 
-    async def resolve(self, requested: str | None) -> str:
+    async def resolve(self, requested: str | None, *, allow_fallback: bool = False) -> str:
         """Return the model a run should use for ``requested``.
+
+        Args:
+            requested: A model id from the catalog. Empty means the default.
+            allow_fallback: The user agreed to the fallback model for a local
+                model that is offline.
 
         Raises:
             UnknownModelError: ``requested`` is not in the catalog.
+            ModelUnavailableError: ``requested`` is local, offline, and the user
+                has not agreed to the fallback.
         """
         if not requested:
             return self.default
@@ -97,13 +120,15 @@ class ModelCatalog:
             raise UnknownModelError(f"unknown model: {requested}")
         if not is_native(requested) and not await self.gpu_available():
             fallback = self._settings.local_fallback_model
+            if not allow_fallback:
+                raise ModelUnavailableError(requested, fallback)
             logger.info("model.local_offline", requested=requested, fallback=fallback)
             return fallback
         return requested
 
     async def gpu_available(self) -> bool:
         """Whether Ollama answers. Unknown (no ``ollama_url``) counts as available:
-        the gateway's own fallback still covers it."""
+        a run then fails with a gateway error rather than silently switching model."""
         if not self._settings.ollama_url:
             return True
         if self._clock() - self._gpu_at < PROBE_TTL:
@@ -146,4 +171,4 @@ class ModelCatalog:
         await self._http.aclose()
 
 
-__all__ = ["ModelCatalog", "ModelInfo", "UnknownModelError"]
+__all__ = ["ModelCatalog", "ModelInfo", "ModelUnavailableError", "UnknownModelError"]

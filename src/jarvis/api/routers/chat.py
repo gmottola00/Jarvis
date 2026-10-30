@@ -7,10 +7,10 @@ from typing import Any, AsyncIterator
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from jarvis.agent.models import UnknownModelError
+from jarvis.agent.models import ModelUnavailableError, UnknownModelError
 from jarvis.api.deps import Services, services
 from jarvis.api.sse import stream
-from jarvis.core.types import ErrorEvent, new_id
+from jarvis.core.types import ErrorEvent, ModelUnavailableEvent, new_id
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -19,6 +19,9 @@ class ChatRequest(BaseModel):
     session_id: str = Field(default="", description="Omit to start a new session.")
     message: str
     model: str = Field(default="", description="A model id from /api/models. Omit for the default.")
+    allow_fallback: bool = Field(
+        default=False, description="The user agreed to the fallback model if the picked local model is offline."
+    )
 
 
 class SessionResponse(BaseModel):
@@ -58,7 +61,9 @@ async def chat(request: ChatRequest, svc: Services = Depends(services)) -> Any:
     """Run a turn and stream its events.
 
     The stream ends on ``done``, on ``approval_required`` (the run is suspended
-    and durable), or on ``error``.
+    and durable), or on ``error``. It is only ``model_unavailable`` when the
+    picked local model is offline and ``allow_fallback`` was not set: nothing
+    ran, and the client asks the user before resending.
     """
     session_id = request.session_id or new_id("ses")
 
@@ -72,8 +77,15 @@ async def chat(request: ChatRequest, svc: Services = Depends(services)) -> Any:
         return stream(refuse())
 
     try:
-        model = await svc.models.resolve(request.model)
+        model = await svc.models.resolve(request.model, allow_fallback=request.allow_fallback)
     except UnknownModelError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ModelUnavailableError as exc:
+        unavailable = ModelUnavailableEvent(requested=exc.requested, fallback=exc.fallback)
+
+        async def ask() -> AsyncIterator[dict[str, Any]]:
+            yield unavailable.model_dump(mode="json")
+
+        return stream(ask())
 
     return stream(svc.runner.start(session_id, request.message, model=model))
