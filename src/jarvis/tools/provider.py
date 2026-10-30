@@ -79,6 +79,15 @@ class ClientProvider(Generic[T]):
         self._cached = self._real(settings)
         return self._cached
 
+    @property
+    def name(self) -> str:
+        """The capability this provider serves, e.g. ``github``."""
+        return self._name
+
+    def missing(self) -> list[str]:
+        """The settings the live client still needs. Empty when it can be built."""
+        return self._requires(get_settings())
+
     def reset(self) -> None:
         """Drop the cached client. Used by tests and by settings reloads."""
         closer = getattr(self._cached, "close", None)

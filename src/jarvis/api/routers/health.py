@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime, timedelta, timezone
+from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from jarvis.api.deps import Services, services
+from jarvis.tools import CAPABILITIES
 
 router = APIRouter(tags=["health"])
+
+USAGE_DAYS = 7
+"""How far back ``/api/capabilities`` counts tool calls."""
 
 
 @router.get("/health")
@@ -23,7 +29,10 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
     """Describe what this Jarvis can do and how it is wired.
 
     The dashboard uses this to show which capabilities are live versus faked, and
-    to render the tool list grouped by namespace.
+    to render the tool list grouped by namespace. ``sources`` says where each
+    capability's answers come from (``live``, ``fixtures``, or ``missing`` with the
+    settings it needs); ``usage`` counts the calls in the audit log over the last
+    ``usage_days``, keyed by tool name, and leaves out tools never called.
     """
     return {
         "model": svc.settings.model,
@@ -37,10 +46,29 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
             "destructive": "blocked" if svc.policy.block_destructive else "confirm",
         },
         "capabilities": {
-            namespace: [{"name": spec.name, "risk": spec.risk.value, "description": spec.description} for spec in specs]
+            namespace: [
+                {
+                    "name": spec.name,
+                    "risk": spec.risk.value,
+                    "description": spec.description,
+                    "input_schema": spec.input_schema,
+                }
+                for spec in specs
+            ]
             for namespace, specs in svc.registry.by_namespace().items()
         },
+        "sources": {module.provider.name: _source(svc, module) for module in CAPABILITIES},
+        "usage": svc.audit.tool_usage(since=datetime.now(timezone.utc) - timedelta(days=USAGE_DAYS)),
+        "usage_days": USAGE_DAYS,
     }
+
+
+def _source(svc: Services, module: ModuleType) -> dict[str, Any]:
+    """Where one capability's answers come from, and what it is for (its module docstring, after the dash)."""
+    about = (module.__doc__ or "").strip().splitlines()[0].split(" — ", 1)[-1].rstrip(".")
+    missing = [] if svc.settings.fake_tools else module.provider.missing()
+    mode = "fixtures" if svc.settings.fake_tools else "missing" if missing else "live"
+    return {"mode": mode, "missing": missing, "about": about}
 
 
 @router.get("/api/models")

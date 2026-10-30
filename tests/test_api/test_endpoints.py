@@ -63,6 +63,28 @@ class TestHealthAndCapabilities:
         assert set(body["capabilities"]) == {"github", "argocd", "k8s", "ghcr", "prometheus", "loki", "alertmanager"}
         assert body["fake_tools"] is True
 
+    @pytest.mark.script([])
+    async def test_capabilities_carry_schemas_and_sources(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/capabilities")).json()
+        read_file = next(t for t in body["capabilities"]["github"] if t["name"] == "github__read_file")
+        assert "path" in read_file["input_schema"]["required"]
+        assert set(body["sources"]) == set(body["capabilities"])
+        assert body["sources"]["github"] == {
+            "mode": "fixtures",
+            "missing": [],
+            "about": "the only path Jarvis has to change anything",
+        }
+        assert body["usage"] == {} and body["usage_days"] == 7
+
+    @pytest.mark.script([ScriptedLLM.call("k8s__list_nodes", {}), ScriptedLLM.say("One node.")])
+    async def test_capabilities_count_calls_from_the_audit_log(self, client: httpx.AsyncClient) -> None:
+        await read_sse(client, "/api/chat", {"message": "quanti nodi?"})
+
+        usage = (await client.get("/api/capabilities")).json()["usage"]
+        assert set(usage) == {"k8s__list_nodes"}
+        assert usage["k8s__list_nodes"]["calls"] == 1
+        assert usage["k8s__list_nodes"]["errors"] == 0
+
 
 class TestLabOverview:
     @pytest.mark.script([])

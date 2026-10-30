@@ -69,7 +69,34 @@ export interface Capabilities {
   fake_tools: boolean;
   durable: boolean;
   policy: { read: string; write: string; destructive: string };
-  capabilities: Record<string, { name: string; risk: RiskLevel; description: string }[]>;
+  capabilities: Record<string, ToolInfo[]>;
+  /** Where each capability's answers come from. Keyed by namespace. */
+  sources: Record<string, { mode: "live" | "fixtures" | "missing"; missing: string[]; about: string }>;
+  /** Calls in the audit log over the last `usage_days`, keyed by tool name. Tools never called are absent. */
+  usage: Record<string, ToolUsage>;
+  usage_days: number;
+}
+
+/** A JSON Schema property, as derived from the tool's signature and its docstring's `Args:`. */
+export interface SchemaProperty {
+  type?: string;
+  enum?: unknown[];
+  description?: string;
+  default?: unknown;
+}
+
+export interface ToolInfo {
+  name: string;
+  risk: RiskLevel;
+  description: string;
+  input_schema: { properties: Record<string, SchemaProperty>; required: string[] };
+}
+
+export interface ToolUsage {
+  calls: number;
+  errors: number;
+  p50_ms: number;
+  last_at: string;
 }
 
 export interface ModelOption {

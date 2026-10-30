@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import datetime, timezone
+from statistics import median
 from typing import Any, Deque
 
 from jarvis.core.types import Approval, ToolCall, ToolResult, Usage
@@ -204,6 +205,26 @@ class AuditLog:
         """Settled approvals across all runs, newest first."""
         settled = [{"run_id": r["run_id"], "prompt": r["prompt"]} | a for r in self._runs for a in r["approvals"]]
         return sorted(settled, key=lambda a: a["decided_at"], reverse=True)[:limit]
+
+    def tool_usage(self, *, since: datetime) -> dict[str, dict[str, Any]]:
+        """Per tool, the calls made since ``since``: count, errors, median duration and the last one.
+
+        Counts what is held in memory, so it covers at most the last ``capacity`` runs.
+        """
+        calls: dict[str, list[dict[str, Any]]] = {}
+        for run in self._runs:
+            for call in run["tool_calls"]:
+                if datetime.fromisoformat(call["at"]) >= since:
+                    calls.setdefault(call["tool"], []).append(call)
+        return {
+            tool: {
+                "calls": len(made),
+                "errors": sum(1 for c in made if not c["ok"]),
+                "p50_ms": median(c["duration_ms"] for c in made),
+                "last_at": max(c["at"] for c in made),
+            }
+            for tool, made in calls.items()
+        }
 
     def get(self, run_id: str) -> dict[str, Any] | None:
         """Return one run in full, tool calls and approvals included."""
