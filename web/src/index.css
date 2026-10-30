@@ -1,18 +1,33 @@
 @import "tailwindcss";
 
 /* The type pairing from the design deck: IBM Plex Sans for prose, JetBrains
-   Mono for anything you would copy-paste - SHAs, pod names, image tags. */
+   Mono for anything you would copy-paste - SHAs, pod names, image tags.
+   Rajdhani is the HUD display face: the brand and section headings only. */
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Rajdhani", "JetBrains Mono", ui-sans-serif, sans-serif;
 
-  --color-ink-950: oklch(0.16 0.008 260);
-  --color-ink-900: oklch(0.21 0.010 260);
-  --color-ink-850: oklch(0.25 0.012 260);
-  --color-ink-800: oklch(0.30 0.014 260);
-  --color-ink-600: oklch(0.55 0.014 260);
-  --color-ink-400: oklch(0.72 0.012 260);
-  --color-ink-200: oklch(0.88 0.008 260);
+  /* Warm near-black: the neutrals lean toward the accent instead of fighting it. */
+  --color-ink-950: oklch(0.13 0.010 20);
+  --color-ink-900: oklch(0.17 0.012 20);
+  --color-ink-850: oklch(0.22 0.014 20);
+  --color-ink-800: oklch(0.29 0.016 20);
+  --color-ink-700: oklch(0.38 0.016 20);
+  --color-ink-600: oklch(0.54 0.016 20);
+  --color-ink-500: oklch(0.63 0.014 20);
+  --color-ink-400: oklch(0.73 0.012 20);
+  --color-ink-300: oklch(0.82 0.010 20);
+  --color-ink-200: oklch(0.90 0.008 20);
+
+  /* Ultron red: neon, used for identity and focus - not for "bad". */
+  --color-ultron-300: oklch(0.78 0.16 25);
+  --color-ultron-400: oklch(0.70 0.22 25);
+  --color-ultron-500: oklch(0.64 0.25 25);
+  --color-ultron-600: oklch(0.56 0.23 25);
+  --color-ultron-700: oklch(0.46 0.19 25);
+  --color-ultron-800: oklch(0.34 0.13 25);
+  --color-ultron-900: oklch(0.24 0.08 25);
 }
 
 html,
@@ -23,6 +38,10 @@ body,
 
 body {
   @apply bg-ink-950 text-ink-200 font-sans antialiased;
+}
+
+::selection {
+  background: color-mix(in oklch, var(--color-ultron-500) 40%, transparent);
 }
 
 /* Firefox has no ::-webkit-scrollbar; this covers both. */
@@ -53,4 +72,145 @@ body {
 }
 .animate-dot {
   animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* --- HUD ------------------------------------------------------------------ */
+
+.glow-red {
+  text-shadow:
+    0 0 8px color-mix(in oklch, var(--color-ultron-500) 70%, transparent),
+    0 0 24px color-mix(in oklch, var(--color-ultron-500) 35%, transparent);
+}
+.glow-box {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--color-ultron-500) 45%, transparent),
+    0 0 18px -2px color-mix(in oklch, var(--color-ultron-500) 45%, transparent);
+}
+
+/* A faint grid behind the chat, fading toward the edges. */
+.hud-grid {
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--color-ultron-500) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--color-ultron-500) 6%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 80%);
+}
+
+.scanlines {
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    color-mix(in oklch, black 22%, transparent) 3px,
+    transparent 4px
+  );
+}
+
+/* Cut corners plus bracket marks: the frame of an assistant message. */
+.hud-frame {
+  position: relative;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--color-ultron-500) 7%, transparent), transparent 40%),
+    color-mix(in oklch, var(--color-ink-900) 85%, transparent);
+  border: 1px solid color-mix(in oklch, var(--color-ultron-500) 22%, transparent);
+}
+.hud-frame::before,
+.hud-frame::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+.hud-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-ultron-500);
+  border-left: 2px solid var(--color-ultron-500);
+}
+.hud-frame::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 2px solid var(--color-ultron-500);
+  border-bottom: 2px solid var(--color-ultron-500);
+}
+
+/* Ultron's core: a ring that breathes while it is working. */
+@keyframes core-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px var(--color-ultron-500),
+      0 0 10px 0 color-mix(in oklch, var(--color-ultron-500) 50%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px var(--color-ultron-400),
+      0 0 22px 4px color-mix(in oklch, var(--color-ultron-500) 70%, transparent);
+  }
+}
+@keyframes core-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pulse-core {
+  animation: core-pulse 1.6s ease-in-out infinite;
+}
+.spin-slow {
+  animation: core-spin 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-core,
+  .spin-slow,
+  .animate-dot {
+    animation: none;
+  }
+  .scanlines {
+    display: none;
+  }
+}
+
+/* --- Code highlighting (highlight.js classes from rehype-highlight) -------- */
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--color-ink-600);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-type {
+  color: var(--color-ultron-400);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: oklch(0.82 0.11 75);
+}
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable {
+  color: oklch(0.80 0.10 200);
+}
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-function {
+  color: var(--color-ink-200);
+  font-weight: 500;
+}
+.hljs-meta,
+.hljs-attribute {
+  color: var(--color-ultron-300);
+}
+.hljs-deletion {
+  color: var(--color-ultron-400);
 }
