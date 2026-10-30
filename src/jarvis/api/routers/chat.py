@@ -88,4 +88,4 @@ async def chat(request: ChatRequest, svc: Services = Depends(services)) -> Any:
 
         return stream(ask())
 
-    return stream(svc.runner.start(session_id, request.message, model=model))
+    return stream(svc.runner.start(session_id, request.message, model=model, picked=request.model or model))

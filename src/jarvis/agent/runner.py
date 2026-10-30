@@ -82,12 +82,15 @@ class JarvisRunner:
         if snapshot.interrupts:
             payload_value = snapshot.interrupts[0].value or {}
             logger.info("run.suspended", tool=payload_value.get("tool"))
-            yield ApprovalRequiredEvent(
+            event = ApprovalRequiredEvent(
                 run_id=run_id,
                 tool=str(payload_value.get("tool", "")),
                 args=dict(payload_value.get("args") or {}),
                 why=str(payload_value.get("why", "")),
-            ).model_dump(mode="json")
+            )
+            if self._audit is not None:
+                self._audit.suspend_run(run_id, event.tool, event.args, event.why)
+            yield event.model_dump(mode="json")
             return
 
         answer = (snapshot.values or {}).get("answer", "")
@@ -98,13 +101,13 @@ class JarvisRunner:
         if self._sessions is not None and answer:
             await self._sessions.append(session_id, Turn(role="assistant", content=answer))
         if self._audit is not None:
-            await self._audit.finish_run(run_id, answer, usage)
+            await self._audit.finish_run(run_id, answer, usage, served_by=served_by)
 
         logger.info("run.done", output_tokens=usage.output_tokens)
         yield DoneEvent(run_id=run_id, usage=usage, model=served_by, requested_model=requested).model_dump(mode="json")
 
     async def start(
-        self, session_id: str, message: str, *, run_id: str | None = None, model: str = ""
+        self, session_id: str, message: str, *, run_id: str | None = None, model: str = "", picked: str = ""
     ) -> AsyncIterator[Any]:
         """Begin a run and stream its events.
 
@@ -113,6 +116,8 @@ class JarvisRunner:
             message: The user's message.
             run_id: Override the generated run id.
             model: Model for this run, already resolved. Empty means the default.
+            picked: The model the user chose, for the audit log. Differs from
+                ``model`` when the user agreed to a fallback. Defaults to ``model``.
         """
         run_id = run_id or new_id("run")
         bind_run(run_id, session=session_id)
@@ -120,7 +125,7 @@ class JarvisRunner:
             if self._sessions is not None:
                 await self._sessions.append(session_id, Turn(role="user", content=message))
             if self._audit is not None:
-                await self._audit.start_run(run_id, session_id, message)
+                await self._audit.start_run(run_id, session_id, message, model=picked or model)
 
             before = await self._usage(session_id)
             state = initial_state(session_id, message, run_id=run_id, model=model)

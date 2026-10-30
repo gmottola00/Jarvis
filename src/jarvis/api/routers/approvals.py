@@ -18,6 +18,20 @@ class ApprovalRequest(BaseModel):
     approved: bool
 
 
+@router.get("/approvals")
+async def overview(svc: Services = Depends(services)) -> dict[str, Any]:
+    """Every run waiting at the gate, and the most recent decisions.
+
+    ``durable`` is false without a database: the checkpointer is then in memory,
+    and a restart forgets every waiting run.
+    """
+    return {
+        "durable": bool(svc.settings.database_url),
+        "pending": svc.audit.pending(),
+        "decided": svc.audit.decisions(limit=20),
+    }
+
+
 @router.post("/approvals/{run_id}")
 async def decide(run_id: str, request: ApprovalRequest, svc: Services = Depends(services)) -> Any:
     """Approve or decline a pending destructive action, and stream the continuation.

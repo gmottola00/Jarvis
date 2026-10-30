@@ -119,19 +119,48 @@ export interface PendingApproval {
   why: string;
 }
 
-export interface RunSummary {
+/** The call a run is suspended on. Cleared once it is decided. */
+export interface GateWait {
+  tool: string;
+  args: Record<string, unknown>;
+  why: string;
+  since: string;
+}
+
+interface RunRecord {
   run_id: string;
   session_id: string;
   prompt: string;
+  /** The model the user picked, before any fallback. */
+  model: string;
+  /** The model that answered. Empty until the run finishes. */
+  served_by: string;
+  pending: GateWait | null;
   answer: string;
   usage: Usage;
-  approvals: { tool: string; approved: boolean }[];
   started_at: string;
   finished_at: string | null;
-  tool_count: number;
 }
 
-export interface RunDetail extends Omit<RunSummary, "tool_count"> {
+export interface RunSummary extends RunRecord {
+  approvals: { tool: string; approved: boolean; decided_at: string }[];
+  tool_count: number;
+  calls_by_risk: Record<RiskLevel, number>;
+  /** The highest risk the run reached, the waiting call included. Null with no tool calls. */
+  risk: RiskLevel | null;
+}
+
+/** `GET /api/approvals`. */
+export interface ApprovalsOverview {
+  /** False without a database: a restart forgets every waiting run. */
+  durable: boolean;
+  /** Oldest first. */
+  pending: (GateWait & { run_id: string; session_id: string; prompt: string })[];
+  /** Newest first. */
+  decided: { run_id: string; prompt: string; tool: string; args: Record<string, unknown>; why: string; approved: boolean; decided_at: string }[];
+}
+
+export interface RunDetail extends RunRecord {
   tool_calls: {
     tool: string;
     risk: RiskLevel;

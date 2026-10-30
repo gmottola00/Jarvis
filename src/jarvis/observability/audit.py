@@ -52,7 +52,11 @@ CREATE TABLE IF NOT EXISTS jarvis_approvals (
     decided_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS jarvis_runs_session_idx ON jarvis_runs(session_id, started_at DESC);
+ALTER TABLE jarvis_runs ADD COLUMN IF NOT EXISTS model TEXT;
+ALTER TABLE jarvis_runs ADD COLUMN IF NOT EXISTS served_by TEXT;
 """
+
+RISKS = ("read", "write", "destructive")
 
 
 class AuditLog:
@@ -70,11 +74,15 @@ class AuditLog:
 
     # --- recording ----------------------------------------------------------
 
-    async def start_run(self, run_id: str, session_id: str, prompt: str) -> None:
+    async def start_run(self, run_id: str, session_id: str, prompt: str, model: str = "") -> None:
+        """Open a run. ``model`` is the one the user picked, before any fallback."""
         record: dict[str, Any] = {
             "run_id": run_id,
             "session_id": session_id,
             "prompt": prompt,
+            "model": model,
+            "served_by": "",
+            "pending": None,
             "answer": "",
             "usage": Usage().model_dump(),
             "tool_calls": [],
@@ -87,8 +95,8 @@ class AuditLog:
         self._runs.append(record)
         self._index[run_id] = record
         await self._write(
-            "INSERT INTO jarvis_runs (run_id, session_id, prompt) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
-            (run_id, session_id, prompt),
+            "INSERT INTO jarvis_runs (run_id, session_id, prompt, model) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+            (run_id, session_id, prompt, model),
         )
 
     async def record_tool_call(self, run_id: str, call: ToolCall, result: ToolResult) -> None:
@@ -127,6 +135,7 @@ class AuditLog:
         }
         if run_id in self._index:
             self._index[run_id]["approvals"].append(entry)
+            self._index[run_id]["pending"] = None
         logger.info("audit.approval", tool=entry["tool"], approved=entry["approved"])
         await self._write(
             "INSERT INTO jarvis_approvals (run_id, tool, args, why, approved) VALUES (%s, %s, %s, %s, %s)",
@@ -139,25 +148,62 @@ class AuditLog:
             ),
         )
 
-    async def finish_run(self, run_id: str, answer: str, usage: Usage) -> None:
+    def suspend_run(self, run_id: str, tool: str, args: dict[str, Any], why: str) -> None:
+        """Mark a run as waiting at the gate. The next :meth:`record_approval` clears it.
+
+        In memory only: the checkpointer is what keeps the run itself, this is
+        just what lets ``/api/approvals`` list every waiting run at once.
+        """
+        if run_id in self._index:
+            self._index[run_id]["pending"] = {
+                "tool": tool,
+                "args": args,
+                "why": why,
+                "since": datetime.now(timezone.utc).isoformat(),
+            }
+
+    async def finish_run(self, run_id: str, answer: str, usage: Usage, served_by: str = "") -> None:
+        """Close a run. ``served_by`` is the model that actually answered."""
         if run_id in self._index:
             self._index[run_id]["answer"] = answer
+            self._index[run_id]["served_by"] = served_by
             self._index[run_id]["usage"] = usage.model_dump()
             self._index[run_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
         await self._write(
-            "UPDATE jarvis_runs SET answer = %s, usage = %s, finished_at = now() WHERE run_id = %s",
-            (answer, self._json(usage.model_dump()), run_id),
+            "UPDATE jarvis_runs SET answer = %s, usage = %s, served_by = %s, finished_at = now() WHERE run_id = %s",
+            (answer, self._json(usage.model_dump()), served_by, run_id),
         )
 
     # --- reading ------------------------------------------------------------
 
     def recent(self, *, limit: int = 50, session_id: str | None = None) -> list[dict[str, Any]]:
-        """Return recent runs, newest first."""
+        """Return recent runs, newest first, with their tool calls counted by risk."""
         runs = [r for r in reversed(self._runs) if session_id is None or r["session_id"] == session_id]
+        return [self._summary(r) for r in runs[:limit]]
+
+    @staticmethod
+    def _summary(run: dict[str, Any]) -> dict[str, Any]:
+        """A run without its tool calls. ``risk`` is the highest one it reached, the waiting call included."""
+        by_risk = {risk: sum(1 for c in run["tool_calls"] if c["risk"] == risk) for risk in RISKS}
+        reached = [risk for risk in RISKS if by_risk[risk]] + (["destructive"] if run["pending"] else [])
+        return {k: v for k, v in run.items() if k != "tool_calls"} | {
+            "tool_count": len(run["tool_calls"]),
+            "calls_by_risk": by_risk,
+            "risk": max(reached, key=RISKS.index) if reached else None,
+        }
+
+    def pending(self) -> list[dict[str, Any]]:
+        """Every run waiting at the gate, oldest first: the order they should be decided in."""
         return [
-            {k: v for k, v in r.items() if k != "tool_calls"} | {"tool_count": len(r["tool_calls"])}
-            for r in runs[:limit]
+            {"run_id": r["run_id"], "session_id": r["session_id"], "prompt": r["prompt"]} | r["pending"]
+            for r in self._runs
+            if r["pending"]
         ]
+
+    def decisions(self, *, limit: int = 20) -> list[dict[str, Any]]:
+        """Settled approvals across all runs, newest first."""
+        settled = [{"run_id": r["run_id"], "prompt": r["prompt"]} | a for r in self._runs for a in r["approvals"]]
+        return sorted(settled, key=lambda a: a["decided_at"], reverse=True)[:limit]
 
     def get(self, run_id: str) -> dict[str, Any] | None:
         """Return one run in full, tool calls and approvals included."""
