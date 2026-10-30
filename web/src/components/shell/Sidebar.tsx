@@ -8,6 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Rocket,
+  SquarePen,
   Server,
   X,
   type LucideIcon,
@@ -51,12 +52,15 @@ export function Sidebar<T extends string>({
   splitAt,
   active,
   onSelect,
+  onNewChat,
 }: {
   items: readonly NavItem<T>[];
   /** Index of the first console item; a divider goes before it. */
   splitAt: number;
   active: T;
   onSelect: (id: T) => void;
+  /** Start a conversation from scratch. */
+  onNewChat: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -84,6 +88,21 @@ export function Sidebar<T extends string>({
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        title={narrow ? "New chat" : undefined}
+        onClick={() => {
+          onNewChat();
+          setMobileOpen(false);
+        }}
+        className={`mb-3 flex w-full items-center gap-3 border border-ultron-800 bg-ultron-500/5 py-2 text-ultron-300 transition hover:border-ultron-500 hover:bg-ultron-500/15 hover:shadow-[0_0_14px_-4px_var(--color-ultron-500)] ${
+          narrow ? "justify-center px-0" : "px-2.5"
+        }`}
+      >
+        <SquarePen className="size-4 shrink-0" />
+        {!narrow && <span className="font-display text-sm font-semibold tracking-[0.15em] uppercase">new chat</span>}
+      </button>
 
       {items.map((item, index) => {
         const Icon = item.icon;

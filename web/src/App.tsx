@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { RunTimeline } from "./components/runs/RunTimeline";
 import { ICONS, Sidebar } from "./components/shell/Sidebar";
+import { clearSession } from "./lib/api";
 import { LearnModeProvider } from "./lib/hooks/useLearnMode";
 import { Cluster } from "./pages/Cluster";
 import { Dashboard } from "./pages/Dashboard";
@@ -46,12 +47,21 @@ function useHashTab(): [Tab, (tab: Tab) => void] {
 
 function Shell() {
   const [tab, setTab] = useHashTab();
+  // Bumping the key remounts the chat; with no stored session it mints a new one.
+  const [chatKey, setChatKey] = useState(0);
+
+  function newChat() {
+    clearSession();
+    setChatKey((k) => k + 1);
+    setTab("dashboard");
+  }
+
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <Sidebar items={TABS} splitAt={CONSOLE_FROM} active={tab} onSelect={setTab} />
+      <Sidebar items={TABS} splitAt={CONSOLE_FROM} active={tab} onSelect={setTab} onNewChat={newChat} />
 
       <main className="min-h-0 min-w-0 flex-1">
-        {tab === "dashboard" && <Dashboard />}
+        {tab === "dashboard" && <Dashboard key={chatKey} />}
         {tab === "runs" && <RunTimeline />}
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
