@@ -1,23 +1,30 @@
 import { useEffect, useState } from "react";
 import { RunTimeline } from "./components/runs/RunTimeline";
-import { LearnModeProvider, useLearnMode } from "./lib/hooks/useLearnMode";
+import { ICONS, Sidebar } from "./components/shell/Sidebar";
+import { clearSession } from "./lib/api";
+import { LearnModeProvider } from "./lib/hooks/useLearnMode";
 import { Cluster } from "./pages/Cluster";
 import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
+import { Lab } from "./pages/Lab";
 
 /**
- * Two halves: the agent (chat, runs) *decides and changes*; the console
+ * Two halves: the agent (chat, runs, lab) *decides and changes*; the console
  * (cluster, delivery, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
-  { id: "dashboard", label: "agent" },
-  { id: "runs", label: "runs" },
-  { id: "cluster", label: "cluster" },
-  { id: "delivery", label: "delivery" },
-  { id: "alerts", label: "alerts" },
+  { id: "dashboard", label: "chat", icon: ICONS.dashboard },
+  { id: "runs", label: "runs", icon: ICONS.runs },
+  { id: "lab", label: "lab", icon: ICONS.lab },
+  { id: "cluster", label: "cluster", icon: ICONS.cluster },
+  { id: "delivery", label: "delivery", icon: ICONS.delivery },
+  { id: "alerts", label: "alerts", icon: ICONS.alerts },
 ] as const;
+
+/** Where the console group starts in `TABS`. */
+const CONSOLE_FROM = 3;
 
 type Tab = (typeof TABS)[number]["id"];
 
@@ -40,48 +47,23 @@ function useHashTab(): [Tab, (tab: Tab) => void] {
 
 function Shell() {
   const [tab, setTab] = useHashTab();
-  const learn = useLearnMode();
+  // Bumping the key remounts the chat; with no stored session it mints a new one.
+  const [chatKey, setChatKey] = useState(0);
+
+  function newChat() {
+    clearSession();
+    setChatKey((k) => k + 1);
+    setTab("dashboard");
+  }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center gap-5 border-b border-ink-850 px-5 py-2.5">
-        <div className="flex items-baseline gap-2">
-          <h1 className="font-mono text-sm font-medium tracking-wide">JARVIS</h1>
-          <span className="hidden font-mono text-[10px] text-ink-800 sm:inline">operates the homelab</span>
-        </div>
+    <div className="flex h-full flex-col md:flex-row">
+      <Sidebar items={TABS} splitAt={CONSOLE_FROM} active={tab} onSelect={setTab} onNewChat={newChat} />
 
-        <nav className="ml-auto flex items-center gap-1 overflow-x-auto">
-          {TABS.map(({ id, label }, index) => (
-            <span key={id} className="flex items-center gap-1">
-              {index === 2 && <span className="mx-1 h-4 w-px bg-ink-850" aria-hidden />}
-              <button
-                type="button"
-                onClick={() => setTab(id)}
-                className={`rounded-md px-2.5 py-1 font-mono text-[11px] uppercase ${
-                  tab === id ? "bg-ink-850 text-ink-200" : "text-ink-600 hover:text-ink-400"
-                }`}
-              >
-                {label}
-              </button>
-            </span>
-          ))}
-          <button
-            type="button"
-            onClick={learn.toggle}
-            aria-pressed={learn.on}
-            title="Show the explanation next to each panel"
-            className={`ml-2 rounded-md px-2.5 py-1 font-mono text-[11px] ring-1 ${
-              learn.on ? "bg-sky-500/10 text-sky-300 ring-sky-500/25" : "text-ink-600 ring-ink-850 hover:text-ink-400"
-            }`}
-          >
-            learn {learn.on ? "on" : "off"}
-          </button>
-        </nav>
-      </header>
-
-      <main className="min-h-0 flex-1">
-        {tab === "dashboard" && <Dashboard />}
+      <main className="min-h-0 min-w-0 flex-1">
+        {tab === "dashboard" && <Dashboard key={chatKey} />}
         {tab === "runs" && <RunTimeline />}
+        {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}
         {tab === "alerts" && <Alerts />}

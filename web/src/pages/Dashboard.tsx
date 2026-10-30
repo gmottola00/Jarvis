@@ -3,36 +3,50 @@ import { ApprovalDialog } from "../components/approval/ApprovalDialog";
 import { Composer } from "../components/chat/Composer";
 import { MessageList } from "../components/chat/MessageList";
 import { BudgetMeter } from "../components/chat/BudgetMeter";
+import { FallbackDialog } from "../components/chat/FallbackDialog";
 import { ModelPicker } from "../components/chat/ModelPicker";
-import { LabPanel } from "../components/lab/LabPanel";
 import { api, storeModel, storeSession, storedModel, storedSession } from "../lib/api";
 import { clearHandoff, pendingHandoff } from "../lib/handoff";
 import { streamEvents } from "../lib/sse";
-import type { Capabilities, LabOverview, Message, ModelCatalog, PendingApproval, RunEvent } from "../lib/types";
+import type { Capabilities, Message, ModelCatalog, PendingApproval, RunEvent } from "../lib/types";
 
-const OVERVIEW_INTERVAL_MS = 15_000;
+/** How often the picker learns the GPU machine went up or down. */
+const CATALOG_INTERVAL_MS = 15_000;
+
+/** A message held back because its local model is offline, until the user decides. */
+interface PendingFallback {
+  text: string;
+  requested: string;
+  fallback: string;
+}
 
 /**
- * Chat on the left, lab state on the right.
+ * The chat, full width. The lab state has its own page now.
  *
  * All the run bookkeeping is here: one assistant message is built up from the
  * event stream, and a stream that ends in `approval_required` leaves the dialog
- * open rather than the message finished.
+ * open rather than the message finished. A message for an offline local model
+ * is never sent to Claude without the user's say-so: it waits behind
+ * `FallbackDialog`.
  */
 export function Dashboard() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
-  const [overview, setOverview] = useState<LabOverview | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
   const [model, setModel] = useState<string>(() => storedModel() ?? "");
+  const [fallback, setFallback] = useState<PendingFallback | null>(null);
+  /** Text handed back to the composer after the user declined the fallback. */
+  const [draft, setDraft] = useState<{ text: string } | undefined>(undefined);
 
   /** A prompt handed over by a console page, waiting for its fresh session. */
   const [handoff, setHandoff] = useState<string | null>(null);
 
   const assistantId = useRef<string | null>(null);
+  /** The user message in flight, so a refused send can be taken back out. */
+  const inFlight = useRef<{ userId: string; text: string } | null>(null);
 
   // A remembered model the gateway no longer offers falls back to the default.
   const activeModel = catalog?.models.some((m) => m.id === model) ? model : (catalog?.default ?? "");
@@ -87,15 +101,10 @@ export function Dashboard() {
     };
   }, []);
 
-  /* --- lab overview polling ------------------------------------------------ */
+  /* --- model catalog polling ---------------------------------------------- */
   useEffect(() => {
     let alive = true;
     const load = () => {
-      api
-        .overview()
-        .then((data) => alive && setOverview(data))
-        .catch(() => undefined);
-      // Same cadence: it is how the picker learns the GPU machine went up or down.
       api
         .models()
         .then((data) => alive && setCatalog(data))
@@ -106,7 +115,7 @@ export function Dashboard() {
       .capabilities()
       .then((data) => alive && setCapabilities(data))
       .catch(() => undefined);
-    const timer = setInterval(load, OVERVIEW_INTERVAL_MS);
+    const timer = setInterval(load, CATALOG_INTERVAL_MS);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -146,13 +155,26 @@ export function Dashboard() {
           setApproval({ run_id: event.run_id, tool: event.tool, args: event.args, risk: "destructive", why: event.why });
           break;
         case "done":
-          patchAssistant((m) => ({ ...m, usage: event.usage, model: event.model || undefined, streaming: false }));
-          // The overview may have moved: a merge starts a rollout.
-          api.overview().then(setOverview).catch(() => undefined);
+          patchAssistant((m) => ({
+            ...m,
+            usage: event.usage,
+            model: event.model || undefined,
+            requestedModel: event.requested_model || undefined,
+            streaming: false,
+          }));
           break;
         case "error":
           patchAssistant((m) => ({ ...m, error: event.message, streaming: false }));
           break;
+        case "model_unavailable": {
+          // Nothing ran: take the exchange back out and ask.
+          const sent = inFlight.current;
+          const dropped = new Set([assistantId.current, sent?.userId]);
+          setMessages((current) => current.filter((m) => !dropped.has(m.id)));
+          assistantId.current = null;
+          setFallback({ text: sent?.text ?? "", requested: event.requested, fallback: event.fallback });
+          break;
+        }
       }
     },
     [patchAssistant],
@@ -164,22 +186,45 @@ export function Dashboard() {
     setMessages((current) => [...current, { id, role: "assistant", text: "", streaming: true }]);
   }
 
-  async function send(text: string) {
+  async function send(text: string, allowFallback = false) {
     if (!sessionId) return;
+
+    // The catalog already knows the GPU is off: ask before even sending.
+    const picked = catalog?.models.find((m) => m.id === activeModel);
+    if (!allowFallback && catalog && picked?.provider === "local" && !picked.available) {
+      setFallback({ text, requested: activeModel, fallback: catalog.fallback });
+      return;
+    }
+
     setBusy(true);
-    setMessages((current) => [...current, { id: `user-${Date.now()}`, role: "user", text }]);
+    const userId = `user-${Date.now()}`;
+    inFlight.current = { userId, text };
+    setMessages((current) => [...current, { id: userId, role: "user", text }]);
     beginAssistantMessage();
 
     const stream = streamEvents(
       "/api/chat",
-      { session_id: sessionId, message: text, model: activeModel },
+      { session_id: sessionId, message: text, model: activeModel, allow_fallback: allowFallback },
       handleEvent,
       (message) => patchAssistant((m) => ({ ...m, error: message, streaming: false })),
     );
     await stream.done;
     patchAssistant((m) => ({ ...m, streaming: false }));
+    inFlight.current = null;
     setBusy(false);
   }
+
+  const decideFallback = useCallback(
+    (useFallback: boolean) => {
+      const held = fallback;
+      setFallback(null);
+      if (!held) return;
+      if (useFallback) void send(held.text, true);
+      else setDraft({ text: held.text });
+    },
+    // `send` changes every render; this only needs the held message.
+    [fallback],
+  );
 
   async function decide(approved: boolean) {
     if (!sessionId || !approval) return;
@@ -214,38 +259,39 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_minmax(19rem,22rem)]">
-        <div className="flex h-full min-h-0 flex-col border-r border-ink-850">
-          {llmDown && (
-            <p className="border-b border-amber-500/25 bg-amber-500/5 px-5 py-2 text-xs text-amber-300">
-              ANTHROPIC_API_KEY is not set — chat is disabled. The lab panel still works.
-            </p>
-          )}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <MessageList messages={messages} />
-          </div>
+      <div className="relative flex h-full min-h-0 flex-col">
+        <div className="hud-grid pointer-events-none absolute inset-0" aria-hidden />
+        <div className="scanlines absolute inset-0 opacity-40" aria-hidden />
+
+        {llmDown && (
+          <p className="relative border-b border-amber-500/25 bg-amber-500/5 px-5 py-2 text-xs text-amber-300">
+            ANTHROPIC_API_KEY is not set — chat is disabled. The lab page still works.
+          </p>
+        )}
+        <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <MessageList messages={messages} onSuggest={sessionId && !llmDown && !busy ? (prompt) => void send(prompt) : undefined} />
+        </div>
+        <div className="relative">
           <Composer
-            onSend={send}
+            onSend={(text) => void send(text)}
             busy={busy}
             disabled={!sessionId || llmDown}
+            draft={draft}
             placeholder={llmDown ? "Set ANTHROPIC_API_KEY to enable chat" : undefined}
             accessory={
-              catalog && (
-                <>
-                  {catalog.budget && <BudgetMeter budget={catalog.budget} />}
-                  <ModelPicker catalog={catalog} value={activeModel} onChange={pickModel} disabled={busy || llmDown} />
-                </>
-              )
+              <>
+                {catalog?.budget && <BudgetMeter budget={catalog.budget} />}
+                <ModelPicker catalog={catalog} value={activeModel} onChange={pickModel} disabled={busy || llmDown} />
+              </>
             }
           />
         </div>
-
-        <aside className="hidden min-h-0 lg:block">
-          <LabPanel overview={overview} capabilities={capabilities} />
-        </aside>
       </div>
 
       {approval && <ApprovalDialog approval={approval} busy={busy} onDecide={decide} />}
+      {fallback && (
+        <FallbackDialog requested={fallback.requested} fallback={fallback.fallback} onDecide={decideFallback} />
+      )}
     </>
   );
 }

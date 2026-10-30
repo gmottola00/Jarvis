@@ -2,9 +2,12 @@ import type { Capabilities, LabOverview } from "../../lib/types";
 
 function Card({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
   return (
-    <section className="rounded-xl border border-ink-850 bg-ink-900/40">
+    <section className="min-w-0 rounded-xl border border-ink-850 bg-ink-900/40">
       <header className="flex items-baseline justify-between border-b border-ink-850 px-4 py-2.5">
-        <h3 className="font-mono text-[11px] tracking-widest text-ink-600 uppercase">{title}</h3>
+        <h3 className="flex items-center gap-2 font-display text-xs font-semibold tracking-[0.2em] text-ink-400 uppercase">
+          <span className="h-3 w-0.5 bg-ultron-500" aria-hidden />
+          {title}
+        </h3>
         {note && <span className="font-mono text-[10px] text-ink-800">{note}</span>}
       </header>
       <div className="px-4 py-3">{children}</div>
@@ -16,12 +19,12 @@ function Dot({ ok }: { ok: boolean }) {
   return <span className={`inline-block size-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-rose-400"}`} />;
 }
 
-/** Cluster nodes, ArgoCD applications, and anything unhealthy. */
+/** Cluster nodes, ArgoCD applications, and anything unhealthy - a page of its own, cards in a grid. */
 export function LabPanel({ overview, capabilities }: { overview: LabOverview | null; capabilities: Capabilities | null }) {
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-      <header className="flex items-center justify-between">
-        <h2 className="font-mono text-[11px] tracking-widest text-ink-600 uppercase">Home lab</h2>
+    <div className="mx-auto grid max-w-6xl content-start gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+      <header className="col-span-full flex items-center justify-between">
+        <h2 className="font-display text-xl font-semibold tracking-[0.25em] text-ink-200 uppercase">Home lab</h2>
         {overview && (
           <span
             className={`rounded px-1.5 py-0.5 font-mono text-[10px] ring-1 ${

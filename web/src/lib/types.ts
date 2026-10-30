@@ -14,8 +14,10 @@ export type RunEvent =
   | { type: "tool_call"; id: string; name: string; args: Record<string, unknown>; risk: RiskLevel }
   | { type: "tool_result"; id: string; name: string; ok: boolean; summary: string; duration_ms: number }
   | { type: "approval_required"; run_id: string; tool: string; args: Record<string, unknown>; why: string }
-  | { type: "done"; run_id: string; usage: Usage; model: string }
-  | { type: "error"; message: string };
+  | { type: "done"; run_id: string; usage: Usage; model: string; requested_model: string }
+  | { type: "error"; message: string }
+  /** The picked local model is offline. Nothing ran; resend with `allow_fallback` once the user agrees. */
+  | { type: "model_unavailable"; requested: string; fallback: string };
 
 export interface Usage {
   input_tokens: number;
@@ -73,7 +75,7 @@ export interface Capabilities {
 export interface ModelOption {
   id: string;
   provider: "anthropic" | "local";
-  /** False for a local model while the GPU machine is off: picking it still works, `fallback` answers. */
+  /** False for a local model while the GPU machine is off: sending to it asks before `fallback` answers. */
   available: boolean;
   /** A local model already in VRAM: answers at once. The others first spend seconds loading. */
   loaded: boolean;
@@ -148,6 +150,8 @@ export interface Message {
   usage?: Usage;
   /** The model that actually answered - after a fallback, not the one picked. */
   model?: string;
+  /** The model the run asked for, when the gateway served a different one. */
+  requestedModel?: string;
   error?: string;
   streaming?: boolean;
 }

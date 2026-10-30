@@ -25,9 +25,9 @@ model_list:
       stream_timeout: 30
 
 router_settings:
-  fallbacks:
-    - local/qwen3-30b: [claude-haiku-4-5]
-  # Without this a dead Ollama costs ~5 s of retry backoff on every request.
+  # No local/* -> Claude fallback here: it would be silent. Jarvis asks the
+  # user before falling back. Without this a dead Ollama costs ~5 s of retry
+  # backoff on every request.
   num_retries: 0
 
 litellm_settings:

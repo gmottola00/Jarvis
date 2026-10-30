@@ -160,7 +160,7 @@ async def set_replicas(app: str, component: Literal["backend", "web"], replicas:
     settings = get_settings()
     if app not in settings.replicas_apps:
         allowed = ", ".join(settings.replicas_apps) or "none"
-        raise ValueError(f"{app!r} is not an app whose replicas Jarvis may change (allowed: {allowed}).")
+        raise ValueError(f"{app!r} is not an app whose replicas Ultron may change (allowed: {allowed}).")
     if not 0 <= replicas <= MAX_REPLICAS:
         raise ValueError(f"replicas must be between 0 and {MAX_REPLICAS}, got {replicas}.")
     reason = " ".join(reason.split())

@@ -47,9 +47,10 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
 async def models(svc: Services = Depends(services)) -> dict[str, Any]:
     """The models the chat can pick from, whether the local ones are up, and the budget.
 
-    A local model shown as unavailable still works when picked: the run is
-    answered by ``fallback`` instead. ``budget`` is Jarvis's own gateway key,
-    null without a gateway.
+    Picking a local model shown as unavailable needs the user's consent: the
+    chat answers ``model_unavailable`` until it is resent with ``allow_fallback``,
+    and only then does ``fallback`` answer. ``budget`` is Jarvis's own gateway
+    key, null without a gateway.
     """
     budget = await svc.models.budget()
     return {

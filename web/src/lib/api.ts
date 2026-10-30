@@ -43,6 +43,15 @@ export function storedSession(): string | null {
   }
 }
 
+/** Forget the conversation: the chat mints a fresh session on its next mount. */
+export function clearSession(): void {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* nothing stored, nothing to forget */
+  }
+}
+
 export function storeSession(sessionId: string): void {
   try {
     localStorage.setItem(SESSION_KEY, sessionId);

@@ -89,7 +89,10 @@ export function Panel({
   return (
     <section className="min-w-0 rounded-xl border border-ink-850 bg-ink-900/40">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-ink-850 px-4 py-2.5">
-        <h3 className="font-mono text-[11px] tracking-widest text-ink-600 uppercase">{title}</h3>
+        <h3 className="flex items-center gap-2 font-display text-xs font-semibold tracking-[0.2em] text-ink-400 uppercase">
+          <span className="h-3 w-0.5 bg-ultron-500" aria-hidden />
+          {title}
+        </h3>
         {note && <span className="font-mono text-[10px] text-ink-800">{note}</span>}
         {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </header>

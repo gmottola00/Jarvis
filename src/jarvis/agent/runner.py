@@ -92,6 +92,7 @@ class JarvisRunner:
 
         answer = (snapshot.values or {}).get("answer", "")
         served_by = (snapshot.values or {}).get("served_by", "")
+        requested = (snapshot.values or {}).get("model", "")
         usage = self._delta(before, (snapshot.values or {}).get("usage") or Usage())
 
         if self._sessions is not None and answer:
@@ -100,7 +101,7 @@ class JarvisRunner:
             await self._audit.finish_run(run_id, answer, usage)
 
         logger.info("run.done", output_tokens=usage.output_tokens)
-        yield DoneEvent(run_id=run_id, usage=usage, model=served_by).model_dump(mode="json")
+        yield DoneEvent(run_id=run_id, usage=usage, model=served_by, requested_model=requested).model_dump(mode="json")
 
     async def start(
         self, session_id: str, message: str, *, run_id: str | None = None, model: str = ""
