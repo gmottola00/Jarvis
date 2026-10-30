@@ -7,13 +7,14 @@ import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
 import { Approvals } from "./pages/Approvals";
+import { Capabilities } from "./pages/Capabilities";
 import { Lab } from "./pages/Lab";
 import { Models } from "./pages/Models";
 import { Runs } from "./pages/Runs";
 
 /**
- * Two halves: the agent (chat, runs, approvals, models, lab) *decides and changes*; the console
- * (cluster, delivery, alerts) *looks*, with no model involved — until a
+ * Two halves: the agent (chat, runs, approvals, models, capabilities, lab) *decides and changes*;
+ * the console (cluster, delivery, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
@@ -21,6 +22,7 @@ const TABS = [
   { id: "runs", label: "runs", icon: ICONS.runs },
   { id: "approvals", label: "approvals", icon: ICONS.approvals },
   { id: "models", label: "models", icon: ICONS.models },
+  { id: "capabilities", label: "capabilities", icon: ICONS.capabilities },
   { id: "lab", label: "lab", icon: ICONS.lab },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
@@ -28,7 +30,7 @@ const TABS = [
 ] as const;
 
 /** Where the console group starts in `TABS`. */
-const CONSOLE_FROM = 5;
+const CONSOLE_FROM = 6;
 
 type Tab = (typeof TABS)[number]["id"];
 
@@ -69,6 +71,7 @@ function Shell() {
         {tab === "runs" && <Runs />}
         {tab === "approvals" && <Approvals />}
         {tab === "models" && <Models />}
+        {tab === "capabilities" && <Capabilities />}
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}

@@ -12,6 +12,7 @@ import {
   SquarePen,
   Server,
   ShieldAlert,
+  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +31,7 @@ export const ICONS = {
   runs: Activity,
   approvals: ShieldAlert,
   models: Cpu,
+  capabilities: Wrench,
   lab: FlaskConical,
   cluster: Server,
   delivery: Rocket,
