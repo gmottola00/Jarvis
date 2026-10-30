@@ -5,7 +5,8 @@ import type { ModelCatalog, ModelOption } from "../../lib/types";
 /**
  * Which model answers the next message. Claude and local models are grouped,
  * each with a status light. A local model whose GPU machine is off stays
- * pickable: sending to it asks before the fallback answers.
+ * pickable: sending to it asks before the fallback answers. A local model not
+ * yet in VRAM says so: its first answer waits for it to load.
  *
  * Always shown, even with a single model or before the catalog arrives, so the
  * user always sees which model the next message goes to.
@@ -51,6 +52,7 @@ export function ModelPicker({
   const local = catalog.models.filter((m) => m.provider === "local");
   const picked = catalog.models.find((m) => m.id === value);
   const offline = picked?.provider === "local" && !picked.available;
+  const cold = picked?.provider === "local" && picked.available && !picked.loaded;
 
   const option = (m: ModelOption) => (
     <button
@@ -68,7 +70,11 @@ export function ModelPicker({
     >
       <span className={`size-1.5 shrink-0 rounded-full ${m.available ? "bg-emerald-400" : "bg-ultron-500"}`} />
       <span className="truncate">{m.provider === "local" ? m.id.replace(/^local\//, "") : m.id}</span>
-      {!m.available && <span className="ml-auto text-[9px] text-ultron-400 uppercase">offline</span>}
+      {m.provider === "local" && !(m.available && m.loaded) && (
+        <span className={`ml-auto text-[9px] uppercase ${m.available ? "text-ink-600" : "text-ultron-400"}`}>
+          {m.available ? "cold" : "offline"}
+        </span>
+      )}
     </button>
   );
 
@@ -80,7 +86,13 @@ export function ModelPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
-        title={offline ? `GPU offline: sending will ask before ${catalog.fallback} answers` : value}
+        title={
+          offline
+            ? `GPU offline: sending will ask before ${catalog.fallback} answers`
+            : cold
+              ? `${value} is not in VRAM yet: the first answer waits for it to load`
+              : value
+        }
         onClick={() => setOpen((v) => !v)}
         className={`flex max-w-[14rem] items-center gap-1.5 border px-2 py-1 font-mono text-[11px] disabled:opacity-50 ${
           offline ? "border-ultron-700 text-ultron-300" : "border-ink-800 text-ink-400 hover:border-ink-700 hover:text-ink-200"

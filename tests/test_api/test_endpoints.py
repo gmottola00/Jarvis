@@ -139,7 +139,8 @@ class TestModels:
         body = (await client.get("/api/models")).json()
 
         assert body["default"] == "claude-opus-5"
-        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True}]
+        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False}]
+        assert body["budget"] is None
 
     @pytest.mark.script([ScriptedLLM.say("Ciao!")])
     async def test_the_chosen_model_reaches_the_llm(self, client: httpx.AsyncClient) -> None:
@@ -157,7 +158,11 @@ class TestModels:
 def gpu_off(request: httpx.Request) -> httpx.Response:
     """A gateway offering one local model, and an Ollama that does not answer."""
     if request.url.host == "litellm":
-        return httpx.Response(200, json={"data": [{"id": "local/qwen3-30b"}, {"id": "claude-haiku-4-5"}]})
+        data = [
+            {"model_name": "local/qwen3-30b", "litellm_params": {"model": "ollama_chat/qwen3:30b"}},
+            {"model_name": "claude-haiku-4-5", "litellm_params": {"model": "anthropic/claude-haiku-4-5"}},
+        ]
+        return httpx.Response(200, json={"data": data})
     raise httpx.ConnectTimeout("no route")
 
 

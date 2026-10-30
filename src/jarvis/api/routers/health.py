@@ -45,14 +45,17 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
 
 @router.get("/api/models")
 async def models(svc: Services = Depends(services)) -> dict[str, Any]:
-    """The models the chat can pick from, and whether the local ones are up.
+    """The models the chat can pick from, whether the local ones are up, and the budget.
 
     Picking a local model shown as unavailable needs the user's consent: the
     chat answers ``model_unavailable`` until it is resent with ``allow_fallback``,
-    and only then does ``fallback`` answer.
+    and only then does ``fallback`` answer. ``budget`` is Jarvis's own gateway
+    key, null without a gateway.
     """
+    budget = await svc.models.budget()
     return {
         "default": svc.models.default,
         "fallback": svc.settings.local_fallback_model,
         "models": [asdict(m) for m in await svc.models.entries()],
+        "budget": asdict(budget) if budget else None,
     }

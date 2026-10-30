@@ -5,7 +5,15 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.agent.models import MODELS_TTL, PROBE_TTL, ModelCatalog, ModelUnavailableError, UnknownModelError
+from jarvis.agent.models import (
+    BUDGET_TTL,
+    MODELS_TTL,
+    PROBE_TTL,
+    Budget,
+    ModelCatalog,
+    ModelUnavailableError,
+    UnknownModelError,
+)
 from jarvis.settings import Settings
 
 GATEWAY = "http://litellm:4000"
@@ -24,8 +32,14 @@ class Lab:
     """A gateway and an Ollama, as one MockTransport handler."""
 
     def __init__(self) -> None:
-        self.models = ["local/qwen3-30b", "claude-opus-5", "claude-haiku-4-5"]
+        self.models = {
+            "local/qwen3-30b": "ollama_chat/qwen3:30b",
+            "claude-opus-5": "anthropic/claude-opus-5",
+            "claude-haiku-4-5": "anthropic/claude-haiku-4-5",
+        }
         self.gpu_on = True
+        self.in_vram = ["qwen3:30b"]
+        self.spend = 4.2
         self.gateway_up = True
         self.calls: list[str] = []
 
@@ -35,10 +49,14 @@ class Lab:
             if not self.gateway_up:
                 raise httpx.ConnectError("down")
             assert request.headers["authorization"] == "Bearer sk-virtual"
-            return httpx.Response(200, json={"data": [{"id": m} for m in self.models]})
+            if request.url.path == "/key/info":
+                info = {"spend": self.spend, "max_budget": 20.0, "budget_reset_at": "2026-11-01T00:00:00+00:00"}
+                return httpx.Response(200, json={"key": "hashed", "info": info})
+            data = [{"model_name": name, "litellm_params": {"model": backend}} for name, backend in self.models.items()]
+            return httpx.Response(200, json={"data": data})
         if not self.gpu_on:
             raise httpx.ConnectTimeout("no route")
-        return httpx.Response(200, json={"models": []})
+        return httpx.Response(200, json={"models": [{"name": n} for n in self.in_vram]})
 
 
 @pytest.fixture
@@ -65,6 +83,15 @@ class TestEntries:
             ("claude-opus-5", "anthropic", True),
             ("local/qwen3-30b", "local", True),
         ]
+
+    async def test_a_local_model_in_vram_is_loaded(self, lab: Lab, clock: Clock) -> None:
+        entries = await catalog(lab, clock).entries()
+        assert {m.id: m.loaded for m in entries}["local/qwen3-30b"] is True
+
+    async def test_a_local_model_not_in_vram_is_not_loaded(self, lab: Lab, clock: Clock) -> None:
+        lab.in_vram = ["qwen3:14b"]
+        entries = await catalog(lab, clock).entries()
+        assert not any(m.loaded for m in entries)
 
     async def test_gpu_off_marks_only_local_models_unavailable(self, lab: Lab, clock: Clock) -> None:
         lab.gpu_on = False
@@ -119,10 +146,37 @@ class TestResolve:
         models = catalog(lab, clock)
         await models.resolve("local/qwen3-30b")
         await models.resolve("local/qwen3-30b")
-        assert lab.calls.count("/api/tags") == 1
+        assert lab.calls.count("/api/ps") == 1
 
         lab.gpu_on = False
         clock.now += PROBE_TTL + 1
 
         assert await models.resolve("local/qwen3-30b", allow_fallback=True) == "claude-haiku-4-5"
-        assert lab.calls.count("/api/tags") == 2
+        assert lab.calls.count("/api/ps") == 2
+
+
+class TestBudget:
+    async def test_reads_the_keys_own_spend(self, lab: Lab, clock: Clock) -> None:
+        assert await catalog(lab, clock).budget() == Budget(
+            spend=4.2, max_budget=20.0, reset_at="2026-11-01T00:00:00+00:00"
+        )
+
+    async def test_without_a_gateway_there_is_none(self, clock: Clock) -> None:
+        models = ModelCatalog(Settings(ANTHROPIC_API_KEY="sk-real", llm_gateway_url=None), clock=clock)
+        assert await models.budget() is None
+
+    async def test_cached_then_refreshed(self, lab: Lab, clock: Clock) -> None:
+        models = catalog(lab, clock)
+        await models.budget()
+        lab.spend = 5.0
+        assert (await models.budget()).spend == 4.2  # type: ignore[union-attr]
+
+        clock.now += BUDGET_TTL + 1
+        assert (await models.budget()).spend == 5.0  # type: ignore[union-attr]
+
+    async def test_a_gateway_outage_keeps_the_last_reading(self, lab: Lab, clock: Clock) -> None:
+        models = catalog(lab, clock)
+        await models.budget()
+        lab.gateway_up = False
+        clock.now += BUDGET_TTL + 1
+        assert (await models.budget()).spend == 4.2  # type: ignore[union-attr]
