@@ -1,6 +1,14 @@
 /** REST calls. Everything streaming lives in `sse.ts`. */
 
-import type { Capabilities, LabOverview, ModelCatalog, PendingApproval, RunDetail, RunSummary } from "./types";
+import type {
+  ApprovalsOverview,
+  Capabilities,
+  LabOverview,
+  ModelCatalog,
+  PendingApproval,
+  RunDetail,
+  RunSummary,
+} from "./types";
 
 async function get<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: { accept: "application/json" } });
@@ -14,6 +22,7 @@ export const api = {
   overview: () => get<LabOverview>("/api/lab/overview"),
   runs: (limit = 50) => get<RunSummary[]>(`/api/runs?limit=${limit}`),
   run: (runId: string) => get<RunDetail>(`/api/runs/${runId}`),
+  approvals: () => get<ApprovalsOverview>("/api/approvals"),
 
   session: (sessionId: string) =>
     get<{

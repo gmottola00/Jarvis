@@ -139,8 +139,12 @@ class TestModels:
         body = (await client.get("/api/models")).json()
 
         assert body["default"] == "claude-opus-5"
-        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False}]
+        assert body["models"] == [
+            {"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False, "backend": ""}
+        ]
         assert body["budget"] is None
+        assert body["gateway"] is False
+        assert body["gpu"] is None
 
     @pytest.mark.script([ScriptedLLM.say("Ciao!")])
     async def test_the_chosen_model_reaches_the_llm(self, client: httpx.AsyncClient) -> None:
@@ -202,6 +206,22 @@ class TestLocalModelOffline:
         assert names(events) == ["token", "done"]
         assert offline.llm.requests[0]["model"] == "claude-haiku-4-5"  # type: ignore[attr-defined]
 
+    @pytest.mark.script([ScriptedLLM.say("Ciao!")])
+    async def test_the_audit_keeps_the_model_that_was_picked(self, offline: httpx.AsyncClient) -> None:
+        await read_sse(offline, "/api/chat", {"message": "ciao", "model": "local/qwen3-30b", "allow_fallback": True})
+
+        run = (await offline.get("/api/runs")).json()[0]
+
+        assert run["model"] == "local/qwen3-30b"
+
+    @pytest.mark.script([])
+    async def test_the_catalog_reports_the_dead_probe(self, offline: httpx.AsyncClient) -> None:
+        body = (await offline.get("/api/models")).json()
+
+        assert body["gpu"]["up"] is False
+        assert body["gpu"]["resident"] == []
+        assert {m["id"]: m["backend"] for m in body["models"]}["local/qwen3-30b"] == "ollama_chat/qwen3:30b"
+
 
 class TestApprovalFlow:
     SCRIPT = [
@@ -261,6 +281,28 @@ class TestApprovalFlow:
             }
         ]
 
+    @pytest.mark.script(SCRIPT)
+    async def test_a_waiting_run_is_listed_until_decided(self, client: httpx.AsyncClient) -> None:
+        session = (await client.post("/api/sessions")).json()["session_id"]
+        events = await read_sse(client, "/api/chat", {"session_id": session, "message": "mergia la PR 12"})
+        run_id = events[-1][1]["run_id"]
+
+        waiting = (await client.get("/api/approvals")).json()
+        assert waiting["durable"] is False
+        assert [(p["run_id"], p["session_id"], p["tool"], p["args"]) for p in waiting["pending"]] == [
+            (run_id, session, "github__merge_pr", {"number": 12})
+        ]
+        assert waiting["pending"][0]["prompt"] == "mergia la PR 12"
+        assert (await client.get("/api/runs")).json()[0]["risk"] == "destructive"
+
+        await read_sse(client, f"/api/approvals/{run_id}", {"session_id": session, "approved": True})
+
+        settled = (await client.get("/api/approvals")).json()
+        assert settled["pending"] == []
+        assert [(d["run_id"], d["tool"], d["approved"]) for d in settled["decided"]] == [
+            (run_id, "github__merge_pr", True)
+        ]
+
     @pytest.mark.script([])
     async def test_approving_nothing_is_an_error_not_a_crash(self, client: httpx.AsyncClient) -> None:
         session = (await client.post("/api/sessions")).json()["session_id"]
@@ -281,6 +323,10 @@ class TestAudit:
         assert len(runs) == 1
         assert runs[0]["prompt"] == "quanti nodi?"
         assert runs[0]["tool_count"] == 1
+        assert runs[0]["calls_by_risk"] == {"read": 1, "write": 0, "destructive": 0}
+        assert runs[0]["risk"] == "read"
+        assert runs[0]["pending"] is None
+        assert runs[0]["model"] == "claude-opus-5"
 
         detail = (await client.get(f"/api/runs/{runs[0]['run_id']}")).json()
         assert detail["tool_calls"][0]["tool"] == "k8s__list_nodes"

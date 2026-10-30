@@ -63,3 +63,31 @@ export function clock(iso: string | null | undefined): string {
   const at = new Date(iso);
   return Number.isNaN(at.getTime()) ? "" : at.toLocaleTimeString([], { hour12: false });
 }
+
+/** When something happened: `12:14` today, `yday 22:05`, then `Tue 08:14`, then `3 Oct`. */
+export function stamp(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "—";
+  const time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (days <= 0) return time;
+  if (days === 1) return `yday ${time}`;
+  if (days < 7) return `${at.toLocaleDateString([], { weekday: "short" })} ${time}`;
+  return at.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+/** A run's wall time: `0.9s`, `6.3s`, `1m 52s`. */
+export function elapsed(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+/** Token counts the way the gateway's dashboards show them: `940`, `41.2k`, `1.3M`. */
+export function tokens(count: number): string {
+  if (count < 1000) return String(count);
+  if (count < 1_000_000) return `${(count / 1000).toFixed(1)}k`;
+  return `${(count / 1_000_000).toFixed(1)}M`;
+}

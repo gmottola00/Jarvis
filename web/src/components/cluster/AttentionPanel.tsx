@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { podStatus, podTone } from "../../lib/console/derive";
 import type { PodDetail } from "../../lib/console/types";
-import { HudHeading } from "./hud";
+import { AlertPanel, HudPanel, Quiet } from "../hud";
 import type { Select } from "./selection";
 
 /**
@@ -14,20 +14,14 @@ export function AttentionPanel({ pods, onSelect }: { pods: PodDetail[]; onSelect
 
   if (pods.length === 0) {
     return (
-      <section className="min-w-0 border border-ultron-500/22 bg-ink-900/85">
-        <HudHeading title="needs attention" note={note} />
-        <p className="px-5 py-4 text-xs text-ink-500">Every pod is Running and ready.</p>
-      </section>
+      <HudPanel title="needs attention" note={note}>
+        <Quiet>Every pod is Running and ready.</Quiet>
+      </HudPanel>
     );
   }
 
   return (
-    <section className="hud-alarm min-w-0">
-      <header className="hud-hazard flex items-center gap-2.5 border-b border-rose-400/30 px-5 py-3">
-        <span aria-hidden className="animate-dot size-[7px] rounded-full bg-rose-400 shadow-[0_0_8px] shadow-rose-400" />
-        <h3 className="font-display text-sm font-bold tracking-[0.25em] whitespace-nowrap text-rose-300 uppercase">needs attention</h3>
-        <span className="ml-auto font-mono text-[11px] text-ink-500">{note}</span>
-      </header>
+    <AlertPanel tone="bad" title="needs attention" note={note} pulse flush>
       <ul className="max-h-[28rem] divide-y divide-rose-400/15 overflow-y-auto">
         {pods.map((pod) => {
           const bad = podTone(pod) === "bad";
@@ -63,7 +57,7 @@ export function AttentionPanel({ pods, onSelect }: { pods: PodDetail[]; onSelect
           );
         })}
       </ul>
-    </section>
+    </AlertPanel>
   );
 }
 

@@ -1,7 +1,6 @@
 import type { EventRecord } from "../../lib/console/types";
 import { since } from "../../lib/format";
-import { Learn } from "../ui/primitives";
-import { HudHeading } from "./hud";
+import { Aside, HudPanel } from "../hud";
 
 /**
  * Warning events as a terminal log: age, reason and repeat count, then the
@@ -17,9 +16,7 @@ export function WarningLog({
   onObject: (namespace: string, ref: string) => void;
 }) {
   return (
-    <section className="min-w-0 border border-ultron-500/22 bg-ink-900/85">
-      <HudHeading title="recent warnings" note={events.length} />
-      <Learn topic="events" className="mx-5 mt-3" />
+    <HudPanel title="recent warnings" note={events.length} topic="events" flush>
       {events.length === 0 ? (
         <p className="px-5 py-4 text-xs text-ink-500">Quiet — no warnings in the retention window (about an hour).</p>
       ) : (
@@ -40,11 +37,11 @@ export function WarningLog({
               >
                 › {event.object}
               </button>
-              <p className="border-l border-ink-800 pl-3 font-sans text-[12.5px] break-all text-ink-400">{event.message}</p>
+              <Aside className="break-all">{event.message}</Aside>
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </HudPanel>
   );
 }

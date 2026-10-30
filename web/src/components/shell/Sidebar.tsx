@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Cpu,
   FlaskConical,
   GraduationCap,
   Menu,
@@ -10,6 +11,7 @@ import {
   Rocket,
   SquarePen,
   Server,
+  ShieldAlert,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +28,8 @@ export interface NavItem<T extends string> {
 export const ICONS = {
   dashboard: MessageSquare,
   runs: Activity,
+  approvals: ShieldAlert,
+  models: Cpu,
   lab: FlaskConical,
   cluster: Server,
   delivery: Rocket,

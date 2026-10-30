@@ -1,7 +1,7 @@
 /**
- * The console's building blocks. Small, presentational, no data fetching —
- * every panel in `components/cluster` and `components/delivery` is assembled
- * from these, so the look stays consistent and each panel stays about content.
+ * The plain building blocks: status dots and badges, facts, labels, lessons,
+ * and the loading / empty / error states. The HUD frames and page shell live
+ * in `components/hud`; these are what goes inside them, and inside drawers.
  */
 
 import { useState, type ReactNode } from "react";
@@ -28,48 +28,13 @@ export function Badge({ tone, children, title }: { tone: Tone; children: ReactNo
   );
 }
 
-/** A horizontal fill bar with its numbers above it. */
-export function Meter({
-  value,
-  tone = "info",
-  label,
-  detail,
-}: {
-  value: number;
-  tone?: Tone;
-  label: string;
-  detail?: string;
-}) {
-  const clamped = Math.max(0, Math.min(100, value));
-  return (
-    <div className="space-y-1">
-      <div className="flex items-baseline justify-between gap-3 font-mono text-[10px]">
-        <span className="text-ink-600 uppercase">{label}</span>
-        <span className="text-ink-400">
-          {detail} <span className="text-ink-600">· {clamped}%</span>
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-ink-850">
-        <div className={`h-full rounded-full transition-[width] duration-500 ${TONE[tone].bar}`} style={{ width: `${clamped}%` }} />
-      </div>
-    </div>
-  );
-}
-
-/** A big number with a caption — the header row of the cluster page. */
-export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Tone }) {
-  return (
-    <div className="rounded-xl border border-ink-850 bg-ink-900/40 px-4 py-3">
-      <p className="font-mono text-[10px] tracking-widest text-ink-600 uppercase">{label}</p>
-      <p className={`mt-1 font-mono text-xl ${tone ? TONE[tone].text : "text-ink-200"}`}>{value}</p>
-      {sub && <p className="mt-0.5 truncate text-[11px] text-ink-600">{sub}</p>}
-    </div>
-  );
-}
-
 /* --- Layout --------------------------------------------------------------- */
 
-export function Panel({
+/**
+ * The rounded card panel of the drawers and the network map: denser than
+ * `HudPanel`, for detail views inside a page rather than the page itself.
+ */
+export function CardPanel({
   title,
   note,
   topic,

@@ -1,6 +1,6 @@
 import { endpointDiagnosis, podHealthy, podsFor } from "../../lib/console/derive";
 import type { IngressView, NetworkView, PodDetail, ServiceView } from "../../lib/console/types";
-import { Badge, Empty, Labels, Learn, Panel } from "../ui/primitives";
+import { Badge, Empty, Labels, Learn, CardPanel } from "../ui/primitives";
 import type { Select } from "./selection";
 
 /** `tickup/api → tickup-backend:8000` → its three parts. */
@@ -36,7 +36,7 @@ export function NetworkMap({ network, pods, onSelect }: { network: NetworkView; 
         <IngressRoute key={`${ingress.namespace}/${ingress.name}`} ingress={ingress} network={network} pods={pods} onSelect={onSelect} />
       ))}
 
-      <Panel title="Cluster-internal services" note={`${internal.length} · reachable only via cluster DNS`} flush>
+      <CardPanel title="Cluster-internal services" note={`${internal.length} · reachable only via cluster DNS`} flush>
         <ul className="divide-y divide-ink-850/60">
           {internal.map((service) => (
             <li key={`${service.namespace}/${service.name}`} className="px-4 py-2.5">
@@ -44,7 +44,7 @@ export function NetworkMap({ network, pods, onSelect }: { network: NetworkView; 
             </li>
           ))}
         </ul>
-      </Panel>
+      </CardPanel>
     </div>
   );
 }
@@ -61,7 +61,7 @@ function IngressRoute({
   onSelect: Select;
 }) {
   return (
-    <Panel
+    <CardPanel
       title={`${ingress.namespace} / ${ingress.name}`}
       note={`ingressClass ${ingress.class_name || "default"}`}
       actions={ingress.tls_hosts.length > 0 && <Badge tone="ok">tls</Badge>}
@@ -94,7 +94,7 @@ function IngressRoute({
           );
         })}
       </ol>
-    </Panel>
+    </CardPanel>
   );
 }
 

@@ -9,24 +9,30 @@ const STAGES = [
 ] as const;
 
 /**
- * The delivery pipeline as five boxes. Each table column below maps to one
- * box, so a mismatch in the table points at the stage that has not caught up.
+ * The delivery pipeline as a numbered rail. Each stage track below maps to one
+ * stop, so a dark stop on an image points at the stage that has not caught up.
  */
 export function PipelineDiagram() {
   return (
     <div className="space-y-3">
-      <ol className="grid grid-cols-1 gap-2 sm:grid-cols-5">
+      <ol className="grid grid-cols-1 gap-4 sm:grid-cols-5 sm:gap-0">
         {STAGES.map((stage, index) => (
-          <li key={stage.system} className="relative rounded-lg border border-ink-850 bg-ink-900/40 px-3 py-2">
-            <p className="font-mono text-[10px] text-ink-800">
-              {index + 1} · <span className="text-ink-600">{stage.column}</span>
-            </p>
-            <p className="mt-0.5 text-xs text-ink-200">{stage.system}</p>
-            <p className="text-[11px] text-ink-600">{stage.what}</p>
-            <p className="mt-1 font-mono text-[10px] text-sky-300/80">{stage.artefact}</p>
-            {index < STAGES.length - 1 && (
-              <span className="absolute top-1/2 -right-2 hidden -translate-y-1/2 font-mono text-[11px] text-ink-800 sm:block">›</span>
-            )}
+          <li key={stage.system} className="flex min-w-0 flex-col gap-2.5">
+            <div className="flex items-center">
+              <span className="grid size-6.5 shrink-0 place-items-center border border-ultron-500 bg-ultron-500/12 font-display text-[13px] font-bold text-ultron-300 shadow-[0_0_10px] shadow-ultron-500/40">
+                {index + 1}
+              </span>
+              {index < STAGES.length - 1 && (
+                <span aria-hidden className="mx-2 hidden h-px flex-1 bg-linear-to-r from-ultron-500/70 to-ultron-500/15 sm:block" />
+              )}
+            </div>
+            <div className="flex min-w-0 flex-col gap-0.5 pr-3.5">
+              <span className="font-mono text-[10px] font-medium tracking-[0.18em] text-ink-600 uppercase">{stage.column}</span>
+              <span className="font-display text-base font-bold tracking-[0.08em] text-ink-200">
+                {stage.system} <span className="font-sans text-xs font-normal tracking-normal text-ink-500">{stage.what}</span>
+              </span>
+              <span className="font-mono text-[11px] text-ultron-300">{stage.artefact}</span>
+            </div>
           </li>
         ))}
       </ol>

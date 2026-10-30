@@ -5,6 +5,7 @@ import { MessageList } from "../components/chat/MessageList";
 import { BudgetMeter } from "../components/chat/BudgetMeter";
 import { FallbackDialog } from "../components/chat/FallbackDialog";
 import { ModelPicker } from "../components/chat/ModelPicker";
+import { HudBackdrop } from "../components/hud";
 import { api, storeModel, storeSession, storedModel, storedSession } from "../lib/api";
 import { clearHandoff, pendingHandoff } from "../lib/handoff";
 import { streamEvents } from "../lib/sse";
@@ -260,8 +261,7 @@ export function Dashboard() {
   return (
     <>
       <div className="relative flex h-full min-h-0 flex-col">
-        <div className="hud-grid pointer-events-none absolute inset-0" aria-hidden />
-        <div className="scanlines absolute inset-0 opacity-40" aria-hidden />
+        <HudBackdrop />
 
         {llmDown && (
           <p className="relative border-b border-amber-500/25 bg-amber-500/5 px-5 py-2 text-xs text-amber-300">

@@ -39,6 +39,14 @@ run: ## Build the dashboard and serve everything from :8100
 	cd $(WEB) && npm run build
 	$(PY) uvicorn jarvis.api.app:app --port 8100
 
+.PHONY: port-forward
+port-forward: ## Forward Prometheus :9090, Alertmanager :9093, Loki :3100 from the cluster
+	@trap 'kill $$(jobs -p) 2>/dev/null' EXIT; \
+	  kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090 & \
+	  kubectl -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093 & \
+	  kubectl -n monitoring port-forward svc/loki 3100 & \
+	  wait -n; echo "A port-forward exited; stopping the others. Run make port-forward again."
+
 # --- quality -----------------------------------------------------------------
 
 .PHONY: lint format format-check typecheck test test-cov web-typecheck check

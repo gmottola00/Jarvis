@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { RunTimeline } from "./components/runs/RunTimeline";
 import { ICONS, Sidebar } from "./components/shell/Sidebar";
 import { clearSession } from "./lib/api";
 import { LearnModeProvider } from "./lib/hooks/useLearnMode";
@@ -7,16 +6,21 @@ import { Cluster } from "./pages/Cluster";
 import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
+import { Approvals } from "./pages/Approvals";
 import { Lab } from "./pages/Lab";
+import { Models } from "./pages/Models";
+import { Runs } from "./pages/Runs";
 
 /**
- * Two halves: the agent (chat, runs, lab) *decides and changes*; the console
+ * Two halves: the agent (chat, runs, approvals, models, lab) *decides and changes*; the console
  * (cluster, delivery, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
   { id: "dashboard", label: "chat", icon: ICONS.dashboard },
   { id: "runs", label: "runs", icon: ICONS.runs },
+  { id: "approvals", label: "approvals", icon: ICONS.approvals },
+  { id: "models", label: "models", icon: ICONS.models },
   { id: "lab", label: "lab", icon: ICONS.lab },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
@@ -24,7 +28,7 @@ const TABS = [
 ] as const;
 
 /** Where the console group starts in `TABS`. */
-const CONSOLE_FROM = 3;
+const CONSOLE_FROM = 5;
 
 type Tab = (typeof TABS)[number]["id"];
 
@@ -62,7 +66,9 @@ function Shell() {
 
       <main className="min-h-0 min-w-0 flex-1">
         {tab === "dashboard" && <Dashboard key={chatKey} />}
-        {tab === "runs" && <RunTimeline />}
+        {tab === "runs" && <Runs />}
+        {tab === "approvals" && <Approvals />}
+        {tab === "models" && <Models />}
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}
