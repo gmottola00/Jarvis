@@ -4,6 +4,7 @@ import {
   Cpu,
   FlaskConical,
   GraduationCap,
+  LayoutGrid,
   Menu,
   MessageSquare,
   PanelLeftClose,
@@ -35,6 +36,7 @@ export const ICONS = {
   lab: FlaskConical,
   cluster: Server,
   delivery: Rocket,
+  apps: LayoutGrid,
   alerts: Bell,
 } satisfies Record<string, LucideIcon>;
 

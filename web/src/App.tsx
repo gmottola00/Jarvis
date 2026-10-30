@@ -7,6 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
 import { Approvals } from "./pages/Approvals";
+import { Apps } from "./pages/Apps";
 import { Capabilities } from "./pages/Capabilities";
 import { Lab } from "./pages/Lab";
 import { Models } from "./pages/Models";
@@ -14,7 +15,7 @@ import { Runs } from "./pages/Runs";
 
 /**
  * Two halves: the agent (chat, runs, approvals, models, capabilities, lab) *decides and changes*;
- * the console (cluster, delivery, alerts) *looks*, with no model involved — until a
+ * the console (cluster, delivery, apps, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
@@ -26,6 +27,7 @@ const TABS = [
   { id: "lab", label: "lab", icon: ICONS.lab },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
+  { id: "apps", label: "apps", icon: ICONS.apps },
   { id: "alerts", label: "alerts", icon: ICONS.alerts },
 ] as const;
 
@@ -75,6 +77,7 @@ function Shell() {
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}
+        {tab === "apps" && <Apps />}
         {tab === "alerts" && <Alerts />}
       </main>
     </div>

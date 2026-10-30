@@ -132,10 +132,22 @@ export function HudCard({
 }
 
 /** A card inside a list, framed by its tone: alarm when bad, caution when warn, quiet otherwise. */
-export function ToneCard({ tone, header, children, as: Tag = "div" }: { tone: Tone; header: ReactNode; children: ReactNode; as?: "div" | "li" }) {
+export function ToneCard({
+  tone,
+  header,
+  children,
+  as: Tag = "div",
+  className = "",
+}: {
+  tone: Tone;
+  header: ReactNode;
+  children: ReactNode;
+  as?: "div" | "li";
+  className?: string;
+}) {
   const frame = tone === "bad" || tone === "warn" ? ALARM[tone] : QUIET;
   return (
-    <Tag className={frame.card}>
+    <Tag className={`${frame.card} ${className}`}>
       <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b px-4 py-2.5 ${frame.header}`}>{header}</div>
       {children}
     </Tag>
