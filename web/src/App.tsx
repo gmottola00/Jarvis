@@ -8,10 +8,11 @@ import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
 import { Approvals } from "./pages/Approvals";
 import { Lab } from "./pages/Lab";
+import { Models } from "./pages/Models";
 import { Runs } from "./pages/Runs";
 
 /**
- * Two halves: the agent (chat, runs, approvals, lab) *decides and changes*; the console
+ * Two halves: the agent (chat, runs, approvals, models, lab) *decides and changes*; the console
  * (cluster, delivery, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
@@ -19,6 +20,7 @@ const TABS = [
   { id: "dashboard", label: "chat", icon: ICONS.dashboard },
   { id: "runs", label: "runs", icon: ICONS.runs },
   { id: "approvals", label: "approvals", icon: ICONS.approvals },
+  { id: "models", label: "models", icon: ICONS.models },
   { id: "lab", label: "lab", icon: ICONS.lab },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
@@ -26,7 +28,7 @@ const TABS = [
 ] as const;
 
 /** Where the console group starts in `TABS`. */
-const CONSOLE_FROM = 4;
+const CONSOLE_FROM = 5;
 
 type Tab = (typeof TABS)[number]["id"];
 
@@ -66,6 +68,7 @@ function Shell() {
         {tab === "dashboard" && <Dashboard key={chatKey} />}
         {tab === "runs" && <Runs />}
         {tab === "approvals" && <Approvals />}
+        {tab === "models" && <Models />}
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}

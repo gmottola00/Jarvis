@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Cpu,
   FlaskConical,
   GraduationCap,
   Menu,
@@ -28,6 +29,7 @@ export const ICONS = {
   dashboard: MessageSquare,
   runs: Activity,
   approvals: ShieldAlert,
+  models: Cpu,
   lab: FlaskConical,
   cluster: Server,
   delivery: Rocket,
