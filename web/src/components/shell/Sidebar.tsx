@@ -10,6 +10,7 @@ import {
   Rocket,
   SquarePen,
   Server,
+  ShieldAlert,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export interface NavItem<T extends string> {
 export const ICONS = {
   dashboard: MessageSquare,
   runs: Activity,
+  approvals: ShieldAlert,
   lab: FlaskConical,
   cluster: Server,
   delivery: Rocket,
