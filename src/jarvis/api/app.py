@@ -122,7 +122,7 @@ def create_app(*, llm: Any = None) -> FastAPI:
     """
     settings = get_settings()
     app = FastAPI(
-        title="Jarvis",
+        title="Ultron",
         description="An agent that operates the home lab. Reads freely, writes only to Git.",
         version="0.1.0",
         lifespan=lifespan,

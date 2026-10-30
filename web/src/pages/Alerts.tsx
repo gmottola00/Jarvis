@@ -37,7 +37,7 @@ export function Alerts() {
         <header className="flex flex-wrap items-center gap-3">
           <div>
             <h2 className="text-lg font-medium text-ink-200">Alerts</h2>
-            <p className="text-xs text-ink-600">Straight from Alertmanager. Jarvis looks only when you ask it to.</p>
+            <p className="text-xs text-ink-600">Straight from Alertmanager. Ultron looks only when you ask it to.</p>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {data && <span className="font-mono text-[10px] text-ink-800">as of {clock(data.fetched_at)}</span>}
