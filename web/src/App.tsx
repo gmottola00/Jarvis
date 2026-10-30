@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { RunTimeline } from "./components/runs/RunTimeline";
 import { ICONS, Sidebar } from "./components/shell/Sidebar";
 import { clearSession } from "./lib/api";
 import { LearnModeProvider } from "./lib/hooks/useLearnMode";
@@ -8,6 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
 import { Lab } from "./pages/Lab";
+import { Runs } from "./pages/Runs";
 
 /**
  * Two halves: the agent (chat, runs, lab) *decides and changes*; the console
@@ -62,7 +62,7 @@ function Shell() {
 
       <main className="min-h-0 min-w-0 flex-1">
         {tab === "dashboard" && <Dashboard key={chatKey} />}
-        {tab === "runs" && <RunTimeline />}
+        {tab === "runs" && <Runs />}
         {tab === "lab" && <Lab />}
         {tab === "cluster" && <Cluster />}
         {tab === "delivery" && <Delivery />}
