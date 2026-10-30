@@ -139,8 +139,12 @@ class TestModels:
         body = (await client.get("/api/models")).json()
 
         assert body["default"] == "claude-opus-5"
-        assert body["models"] == [{"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False}]
+        assert body["models"] == [
+            {"id": "claude-opus-5", "provider": "anthropic", "available": True, "loaded": False, "backend": ""}
+        ]
         assert body["budget"] is None
+        assert body["gateway"] is False
+        assert body["gpu"] is None
 
     @pytest.mark.script([ScriptedLLM.say("Ciao!")])
     async def test_the_chosen_model_reaches_the_llm(self, client: httpx.AsyncClient) -> None:
@@ -201,6 +205,14 @@ class TestLocalModelOffline:
 
         assert names(events) == ["token", "done"]
         assert offline.llm.requests[0]["model"] == "claude-haiku-4-5"  # type: ignore[attr-defined]
+
+    @pytest.mark.script([])
+    async def test_the_catalog_reports_the_dead_probe(self, offline: httpx.AsyncClient) -> None:
+        body = (await offline.get("/api/models")).json()
+
+        assert body["gpu"]["up"] is False
+        assert body["gpu"]["resident"] == []
+        assert {m["id"]: m["backend"] for m in body["models"]}["local/qwen3-30b"] == "ollama_chat/qwen3:30b"
 
 
 class TestApprovalFlow:

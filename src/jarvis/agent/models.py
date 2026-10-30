@@ -24,7 +24,8 @@ Example:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Callable, Literal
 
 import httpx
@@ -50,6 +51,26 @@ class ModelInfo:
     available: bool
     loaded: bool = False
     """A local model already in VRAM. The others take seconds to load first."""
+    backend: str = ""
+    """What the gateway routes it to (``ollama_chat/qwen3:30b``). Empty without a gateway."""
+
+
+@dataclass(frozen=True)
+class Resident:
+    """A model Ollama holds in memory, as ``/api/ps`` reports it."""
+
+    name: str
+    vram_bytes: int
+
+
+@dataclass(frozen=True)
+class GpuState:
+    """The last probe of the GPU machine's Ollama."""
+
+    url: str
+    up: bool
+    checked_at: str | None
+    resident: list[Resident] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -100,10 +121,12 @@ class ModelCatalog:
         self._clock = clock
         self._ids: list[str] = []
         self._backends: dict[str, str] = {}
+        self._routes: dict[str, str] = {}
         self._ids_at = float("-inf")
         self._gpu_up = False
-        self._loaded: frozenset[str] = frozenset()
+        self._resident: list[Resident] = []
         self._gpu_at = float("-inf")
+        self._gpu_checked: str | None = None
         self._budget: Budget | None = None
         self._budget_at = float("-inf")
 
@@ -120,7 +143,8 @@ class ModelCatalog:
                 id=i,
                 provider="anthropic" if is_native(i) else "local",
                 available=is_native(i) or gpu,
-                loaded=gpu and self._backends.get(i) in self._loaded,
+                loaded=gpu and self._backends.get(i) in {r.name for r in self._resident},
+                backend=self._routes.get(i, ""),
             )
             for i in ids
         ]
@@ -187,13 +211,24 @@ class ModelCatalog:
         try:
             response = await self._http.get(f"{self._settings.ollama_url.rstrip('/')}/api/ps")
             self._gpu_up = response.status_code == 200
-            self._loaded = (
-                frozenset(str(m["name"]) for m in response.json().get("models", [])) if self._gpu_up else frozenset()
+            self._resident = (
+                [Resident(str(m["name"]), int(m.get("size_vram") or 0)) for m in response.json().get("models", [])]
+                if self._gpu_up
+                else []
             )
-        except (httpx.HTTPError, ValueError, KeyError):
-            self._gpu_up, self._loaded = False, frozenset()
+        except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            self._gpu_up, self._resident = False, []
         self._gpu_at = self._clock()
+        self._gpu_checked = datetime.now(timezone.utc).isoformat()
         return self._gpu_up
+
+    async def gpu(self) -> GpuState | None:
+        """The GPU machine as last probed; None when there is no ``ollama_url`` to probe."""
+        url = self._settings.ollama_url
+        if not url:
+            return None
+        up = await self.gpu_available()
+        return GpuState(url=url, up=up, checked_at=self._gpu_checked, resident=list(self._resident))
 
     async def _ids_cached(self) -> list[str]:
         if self._clock() - self._ids_at < MODELS_TTL:
@@ -218,13 +253,15 @@ class ModelCatalog:
                 timeout=5.0,
             )
             response.raise_for_status()
-            backends = {
-                str(m["model_name"]): str((m.get("litellm_params") or {}).get("model", "")).split("/", 1)[-1]
+            routes = {
+                str(m["model_name"]): str((m.get("litellm_params") or {}).get("model", ""))
                 for m in response.json().get("data", [])
             }
         except (httpx.HTTPError, ValueError, KeyError) as exc:
             logger.warning("models.unavailable", error=str(exc))
             return self._ids or [self.default]
+        self._routes = routes
+        backends = {name: route.split("/", 1)[-1] for name, route in routes.items()}
         self._backends = backends
         # Claude first, then local, each alphabetical: the order the picker shows.
         return sorted(backends, key=lambda i: (not is_native(i), i))
@@ -233,4 +270,4 @@ class ModelCatalog:
         await self._http.aclose()
 
 
-__all__ = ["Budget", "ModelCatalog", "ModelInfo", "ModelUnavailableError", "UnknownModelError"]
+__all__ = ["Budget", "GpuState", "ModelCatalog", "ModelInfo", "ModelUnavailableError", "Resident", "UnknownModelError"]

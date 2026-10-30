@@ -79,6 +79,17 @@ export interface ModelOption {
   available: boolean;
   /** A local model already in VRAM: answers at once. The others first spend seconds loading. */
   loaded: boolean;
+  /** What the gateway routes it to (`ollama_chat/qwen3:30b`). Empty without a gateway. */
+  backend: string;
+}
+
+/** The last probe of the GPU machine's Ollama. */
+export interface GpuState {
+  url: string;
+  up: boolean;
+  checked_at: string | null;
+  /** What `/api/ps` says sits in memory. */
+  resident: { name: string; vram_bytes: number }[];
 }
 
 /** Spend of Jarvis's own gateway key, in dollars. `max_budget` null = unlimited. */
@@ -91,9 +102,13 @@ export interface Budget {
 export interface ModelCatalog {
   default: string;
   fallback: string;
+  /** Whether calls go through LiteLLM; false means straight to Anthropic. */
+  gateway: boolean;
   models: ModelOption[];
   /** Null without a gateway. */
   budget: Budget | null;
+  /** Null when there is no Ollama URL to probe. */
+  gpu: GpuState | null;
 }
 
 export interface PendingApproval {

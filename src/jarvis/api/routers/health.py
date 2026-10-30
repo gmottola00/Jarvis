@@ -50,12 +50,16 @@ async def models(svc: Services = Depends(services)) -> dict[str, Any]:
     Picking a local model shown as unavailable needs the user's consent: the
     chat answers ``model_unavailable`` until it is resent with ``allow_fallback``,
     and only then does ``fallback`` answer. ``budget`` is Jarvis's own gateway
-    key, null without a gateway.
+    key, null without a gateway. ``gpu`` is the last probe of Ollama, null when
+    there is no ``JARVIS_OLLAMA_URL`` to probe.
     """
     budget = await svc.models.budget()
+    gpu = await svc.models.gpu()
     return {
         "default": svc.models.default,
         "fallback": svc.settings.local_fallback_model,
+        "gateway": bool(svc.settings.llm_gateway_url),
         "models": [asdict(m) for m in await svc.models.entries()],
         "budget": asdict(budget) if budget else None,
+        "gpu": asdict(gpu) if gpu else None,
     }

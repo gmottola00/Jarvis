@@ -56,7 +56,7 @@ class Lab:
             return httpx.Response(200, json={"data": data})
         if not self.gpu_on:
             raise httpx.ConnectTimeout("no route")
-        return httpx.Response(200, json={"models": [{"name": n} for n in self.in_vram]})
+        return httpx.Response(200, json={"models": [{"name": n, "size_vram": 15_900_000_000} for n in self.in_vram]})
 
 
 @pytest.fixture
@@ -92,6 +92,25 @@ class TestEntries:
         lab.in_vram = ["qwen3:14b"]
         entries = await catalog(lab, clock).entries()
         assert not any(m.loaded for m in entries)
+
+    async def test_each_model_names_its_route(self, lab: Lab, clock: Clock) -> None:
+        entries = await catalog(lab, clock).entries()
+        assert {m.id: m.backend for m in entries}["local/qwen3-30b"] == "ollama_chat/qwen3:30b"
+
+    async def test_gpu_state_lists_what_sits_in_vram(self, lab: Lab, clock: Clock) -> None:
+        gpu = await catalog(lab, clock).gpu()
+
+        assert gpu is not None and gpu.up and gpu.checked_at
+        assert [(r.name, r.vram_bytes) for r in gpu.resident] == [("qwen3:30b", 15_900_000_000)]
+
+    async def test_gpu_state_when_off_is_empty(self, lab: Lab, clock: Clock) -> None:
+        lab.gpu_on = False
+        gpu = await catalog(lab, clock).gpu()
+        assert gpu is not None and not gpu.up and gpu.resident == []
+
+    async def test_no_ollama_url_means_no_gpu_state(self, clock: Clock) -> None:
+        models = ModelCatalog(Settings(ANTHROPIC_API_KEY="sk-real", llm_gateway_url=None, ollama_url=None), clock=clock)
+        assert await models.gpu() is None
 
     async def test_gpu_off_marks_only_local_models_unavailable(self, lab: Lab, clock: Clock) -> None:
         lab.gpu_on = False
