@@ -1,4 +1,5 @@
-import { useRef, useState, type ReactNode } from "react";
+import { CornerDownLeft, LoaderCircle } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export function Composer({
   onSend,
@@ -6,6 +7,7 @@ export function Composer({
   disabled,
   placeholder,
   accessory,
+  draft,
 }: {
   onSend: (message: string) => void;
   busy: boolean;
@@ -13,9 +15,26 @@ export function Composer({
   placeholder?: string;
   /** Rendered next to Send - the model picker. */
   accessory?: ReactNode;
+  /** Text to put back in the box, e.g. a message the user declined to send. */
+  draft?: { text: string };
 }) {
   const [value, setValue] = useState("");
   const area = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!draft) return;
+    setValue(draft.text);
+    requestAnimationFrame(() => {
+      if (!area.current) return;
+      grow(area.current);
+      area.current.focus();
+    });
+  }, [draft]);
+
+  function grow(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }
 
   function submit() {
     const text = value.trim();
@@ -26,37 +45,44 @@ export function Composer({
   }
 
   return (
-    <div className="border-t border-ink-850 bg-ink-950 px-5 py-3">
-      <div className="flex items-end gap-2 rounded-xl border border-ink-800 bg-ink-900 px-3 py-2 focus-within:border-ink-600">
-        <textarea
-          ref={area}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          placeholder={placeholder ?? "Ask about the lab, or tell me to deploy something…"}
-          onChange={(event) => {
-            setValue(event.target.value);
-            const el = event.target;
-            el.style.height = "auto";
-            el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              submit();
-            }
-          }}
-          className="max-h-44 flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-ink-800 disabled:opacity-50"
-        />
-        {accessory}
-        <button
-          type="button"
-          onClick={submit}
-          disabled={busy || disabled || !value.trim()}
-          className="rounded-lg bg-ink-200 px-3 py-1.5 text-xs font-medium text-ink-950 disabled:bg-ink-800 disabled:text-ink-600"
-        >
-          {busy ? "…" : "Send"}
-        </button>
+    <div className="px-4 pt-2 pb-4 sm:px-6">
+      <div className="mx-auto max-w-4xl">
+        <div className="relative border border-ink-800 bg-ink-900/90 backdrop-blur transition-shadow focus-within:border-ultron-600 focus-within:shadow-[0_0_24px_-6px_var(--color-ultron-500)]">
+          <span className="absolute -top-px -left-px size-2.5 border-t-2 border-l-2 border-ultron-500" aria-hidden />
+          <span className="absolute -right-px -bottom-px size-2.5 border-r-2 border-b-2 border-ultron-500" aria-hidden />
+          <textarea
+            ref={area}
+            rows={1}
+            value={value}
+            disabled={disabled}
+            placeholder={placeholder ?? "Ask about the lab, or tell me to deploy something…"}
+            onChange={(event) => {
+              setValue(event.target.value);
+              grow(event.target);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+              }
+            }}
+            className="block max-h-52 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-ink-700 disabled:opacity-50"
+          />
+          <div className="flex items-center gap-2 px-2.5 pb-2.5">
+            {accessory}
+            <span className="ml-auto hidden font-mono text-[10px] text-ink-700 sm:inline">⏎ send · ⇧⏎ newline</span>
+            <button
+              type="button"
+              onClick={submit}
+              aria-label="Send"
+              disabled={busy || disabled || !value.trim()}
+              className="inline-flex items-center gap-1.5 bg-ultron-600 px-3 py-1.5 font-display text-xs font-bold tracking-[0.2em] text-white uppercase transition hover:bg-ultron-500 hover:shadow-[0_0_14px_var(--color-ultron-500)] disabled:bg-ink-850 disabled:text-ink-600 disabled:shadow-none"
+            >
+              {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <CornerDownLeft className="size-3.5" />}
+              send
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
