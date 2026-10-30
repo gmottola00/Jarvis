@@ -1,14 +1,21 @@
 import type { ComponentDelivery } from "../../lib/console/types";
 import { shortSha, since } from "../../lib/format";
-import { Badge } from "../ui/primitives";
+import { GlowDot, ToneCard } from "../hud";
+import { TONE } from "../ui/tone";
 import { STATUS_TONE } from "./status";
 
+/** Lit stop on the track: rose when the image drifted, Ultron red on the pin, emerald otherwise. */
+const ACCENT = { drifted: "var(--color-rose-400)", pin: "var(--color-ultron-500)", lit: "var(--color-emerald-400)" };
+
 /**
- * One image across the pipeline. The Git pin is the reference: every other
- * stage is shown relative to it, so the cell that disagrees is the one lit up.
+ * One image across the pipeline, as a four-stop track: a stop is lit when its
+ * system reports a tag. The Git pin is the reference: every other stage is
+ * shown relative to it, so the value that disagrees is the one in amber.
  */
 export function ComponentRow({ component, path }: { component: ComponentDelivery; path: string }) {
   const pin = component.git_tag;
+  const tone = STATUS_TONE[component.status];
+  const alarm = tone === "bad";
   const stages = [
     { label: "ci green", tag: component.newest_green_tag, hint: "newest commit with passing checks" },
     {
@@ -23,44 +30,73 @@ export function ComponentRow({ component, path }: { component: ComponentDelivery
   const candidate = component.newest_green_tag && component.newest_green_tag !== pin ? component.newest_green_tag : "";
 
   return (
-    <div className="space-y-2 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-xs text-ink-200">{component.component}</span>
-        <Badge tone={STATUS_TONE[component.status]}>{component.status}</Badge>
-        {component.behind_by > 0 && <span className="font-mono text-[10px] text-amber-300">{component.behind_by} tag(s) behind</span>}
-        <span className="ml-auto font-mono text-[10px] text-ink-800">{component.image}</span>
-      </div>
+    <ToneCard
+      // Only a drift sounds the alarm: "behind" is the normal state between a build and its PR.
+      tone={alarm ? "bad" : "idle"}
+      header={
+        <>
+          <GlowDot tone={tone} />
+          <span className="font-mono text-[13px] text-ink-200">{component.component}</span>
+          <span className={`font-display text-xs font-bold tracking-[0.22em] uppercase ${TONE[tone].text}`}>{component.status}</span>
+          {component.behind_by > 0 && <span className="font-mono text-[10px] text-amber-300">{component.behind_by} tag(s) behind</span>}
+          <span className="ml-auto min-w-0 truncate font-mono text-[11px] text-ink-600">{component.image}</span>
+        </>
+      }
+    >
 
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-        {stages.map((stage) => {
+      <div className="grid grid-cols-2 gap-y-3 px-4 pt-3.5 pb-3 sm:grid-cols-4">
+        {stages.map((stage, index) => {
           const differs = !stage.reference && Boolean(stage.tag) && Boolean(pin) && stage.tag !== pin;
+          const accent = alarm ? ACCENT.drifted : stage.reference ? ACCENT.pin : ACCENT.lit;
+          const next = stages[index + 1];
           return (
-            <div
-              key={stage.label}
-              title={stage.tag || undefined}
-              className={`rounded-md px-2.5 py-1.5 ring-1 ${
-                stage.reference
-                  ? "bg-sky-500/[0.06] ring-sky-500/25"
-                  : differs
-                    ? "bg-amber-500/[0.06] ring-amber-500/25"
-                    : "bg-ink-950/60 ring-ink-850"
-              }`}
-            >
-              <p className="font-mono text-[10px] text-ink-600 uppercase">{stage.label}</p>
-              <p className={`font-mono text-xs ${stage.reference ? "text-sky-300" : differs ? "text-amber-300" : "text-ink-200"}`}>
-                {stage.tag ? shortSha(stage.tag) : <span className="text-ink-800">—</span>}
-                {!stage.reference && stage.tag && stage.tag === pin && <span className="ml-1.5 text-[10px] text-ink-600">= pin</span>}
-              </p>
-              <p className="truncate text-[10px] text-ink-800">{stage.hint}</p>
+            <div key={stage.label} title={stage.hint} className="flex min-w-0 flex-col gap-2">
+              <div className="flex items-center">
+                <span
+                  aria-hidden
+                  className="size-[9px] shrink-0 rotate-45 border"
+                  style={
+                    stage.tag
+                      ? { borderColor: accent, background: accent, boxShadow: `0 0 8px ${accent}` }
+                      : { borderColor: "var(--color-ink-800)" }
+                  }
+                />
+                {next && (
+                  <span
+                    aria-hidden
+                    className={`mx-1.5 hidden h-px flex-1 sm:block ${
+                      stage.tag && next.tag
+                        ? "bg-emerald-400/50"
+                        : "bg-[repeating-linear-gradient(90deg,var(--color-ink-800)_0_3px,transparent_3px_6px)]"
+                    }`}
+                  />
+                )}
+              </div>
+              <span className={`font-mono text-[10px] font-medium tracking-[0.15em] uppercase ${stage.reference ? "text-ultron-300" : "text-ink-500"}`}>
+                {stage.label}
+              </span>
+              <span
+                title={stage.tag || undefined}
+                className={`truncate font-mono text-sm ${stage.reference ? "text-ultron-300" : differs ? "text-amber-300" : "text-ink-200"}`}
+              >
+                {stage.tag ? shortSha(stage.tag) : <span className="text-ink-700">—</span>}
+                {!stage.reference && stage.tag && stage.tag === pin && <span className="ml-1.5 text-[11px] text-ink-600">= pin</span>}
+              </span>
             </div>
           );
         })}
       </div>
 
-      <p className="text-[11px] text-ink-600">{component.note}</p>
+      {component.note && (
+        <p className={`px-4 pb-3 font-mono text-[11.5px] ${alarm ? "text-rose-300" : "text-ink-500"}`}>› {component.note}</p>
+      )}
 
-      {candidate && <BumpPreview path={path} image={component.image} from={pin} to={candidate} />}
-    </div>
+      {candidate && (
+        <div className="px-4 pb-3">
+          <BumpPreview path={path} image={component.image} from={pin} to={candidate} />
+        </div>
+      )}
+    </ToneCard>
   );
 }
 

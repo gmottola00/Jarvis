@@ -5,7 +5,7 @@ import type { WorkloadSummary } from "../../lib/console/types";
 import { age } from "../../lib/format";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { Drawer } from "../ui/Drawer";
-import { Badge, ErrorNote, Facts, Labels, Learn, Loading, Panel, Tabs } from "../ui/primitives";
+import { Badge, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from "../ui/primitives";
 import { ConditionList } from "./ConditionList";
 import { ContainerCard } from "./ContainerCard";
 import { EventFeed } from "./EventFeed";
@@ -72,7 +72,7 @@ export function PodDrawer({
             </p>
           )}
 
-          <Panel title="Placement">
+          <CardPanel title="Placement">
             <Facts
               items={[
                 ["phase", data.phase],
@@ -86,25 +86,25 @@ export function PodDrawer({
                 ["age", age(data.age)],
               ]}
             />
-          </Panel>
+          </CardPanel>
 
-          <Panel title="Conditions" topic="conditions">
+          <CardPanel title="Conditions" topic="conditions">
             <ConditionList conditions={data.conditions} />
-          </Panel>
+          </CardPanel>
 
-          <Panel title="Labels" note="what selectors match on">
+          <CardPanel title="Labels" note="what selectors match on">
             <Labels labels={data.labels} />
-          </Panel>
+          </CardPanel>
 
           {data.volumes.length > 0 && (
-            <Panel title="Volumes">
+            <CardPanel title="Volumes">
               <Facts items={data.volumes.map((v) => [v.name, `${v.kind}${v.source ? ` → ${v.source}` : ""}`])} />
-            </Panel>
+            </CardPanel>
           )}
 
-          <Panel title="Events" note={mine.length ? `${mine.length}` : undefined} topic="events">
+          <CardPanel title="Events" note={mine.length ? `${mine.length}` : undefined} topic="events">
             <EventFeed events={mine} showNamespace={false} />
-          </Panel>
+          </CardPanel>
         </div>
       )}
 

@@ -1,10 +1,12 @@
 import { ComponentRow } from "../components/delivery/ComponentRow";
 import { PipelineDiagram } from "../components/delivery/PipelineDiagram";
 import { argoTone } from "../components/delivery/status";
-import { Badge, Empty, ErrorNote, IconButton, Loading, Panel, Stat } from "../components/ui/primitives";
+import { Aside, GlowDot, HudCard, HudPage, HudPanel, Leader, LiveStamp, Readouts, RefreshButton, type Readout } from "../components/hud";
+import { Empty, ErrorNote, Loading } from "../components/ui/primitives";
+import { TONE } from "../components/ui/tone";
 import { consoleApi } from "../lib/console/api";
 import type { AppDelivery, DeliveryStatus, PullRequestView } from "../lib/console/types";
-import { clock, shortSha } from "../lib/format";
+import { shortSha } from "../lib/format";
 import { usePolling } from "../lib/hooks/usePolling";
 
 /** GHCR and GitHub are rate-limited; the pipeline does not move every few seconds anyway. */
@@ -26,83 +28,83 @@ export function Delivery() {
   const components = tracked.flatMap((app) => app.components);
   const count = (status: DeliveryStatus) => components.filter((c) => c.status === status).length;
 
+  const drifted = count("drifted");
+  const rolling = count("rolling-out");
+  const readouts: Readout[] = [
+    { label: "images", value: components.length, sub: `${tracked.length} of ${data?.apps.length ?? 0} ArgoCD apps pin images`, tone: "idle" },
+    { label: "in sync", value: count("in-sync"), sub: "per image", tone: "ok" },
+    { label: "behind", value: count("behind"), sub: "newer builds not pinned", tone: count("behind") ? "warn" : "ok" },
+    {
+      label: "drifted / rolling",
+      value: `${drifted} / ${rolling}`,
+      sub: "cluster ≠ Git",
+      tone: drifted ? "bad" : rolling ? "info" : "ok",
+    },
+  ];
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
-        <header className="flex flex-wrap items-center gap-3">
-          <div>
-            <h2 className="text-lg font-medium text-ink-200">Delivery</h2>
-            <p className="text-xs text-ink-600">Built, green, pinned, running — per image, without asking the agent.</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {data && <span className="font-mono text-[10px] text-ink-800">as of {clock(data.fetched_at)}</span>}
-            <IconButton onClick={refresh} label="Refresh">
-              {refreshing ? "…" : "refresh"}
-            </IconButton>
-          </div>
-        </header>
+    <HudPage
+      title="Delivery"
+      subtitle="Built, green, pinned, running — per image, without asking the agent."
+      live={refreshing}
+      status={<LiveStamp error={Boolean(error)} every={POLL_MS} at={data?.fetched_at} />}
+      actions={<RefreshButton onClick={refresh} refreshing={refreshing} />}
+    >
+      <PipelineDiagram />
 
-        <PipelineDiagram />
+      {loading && <Loading label="asking ArgoCD, GitHub and GHCR…" />}
+      <ErrorNote errors={error} />
+      {data && <ErrorNote errors={data.errors} />}
 
-        {loading && <Loading label="asking ArgoCD, GitHub and GHCR…" />}
-        <ErrorNote errors={error} />
-        {data && <ErrorNote errors={data.errors} />}
+      {data && (
+        <>
+          <Readouts readouts={readouts} />
 
-        {data && (
-          <>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Stat label="images" value={components.length} sub={`${tracked.length} of ${data.apps.length} ArgoCD apps pin images`} />
-              <Stat label="in sync" value={count("in-sync")} tone="ok" />
-              <Stat label="behind" value={count("behind")} tone={count("behind") ? "warn" : "ok"} sub="newer builds not pinned" />
-              <Stat
-                label="drifted / rolling"
-                value={`${count("drifted")} / ${count("rolling-out")}`}
-                tone={count("drifted") ? "bad" : count("rolling-out") ? "info" : "ok"}
-                sub="cluster ≠ Git"
-              />
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="min-w-0 space-y-4">
+              {[...tracked].sort(byUrgency).map((app, index) => (
+                <AppCard key={app.name} app={app} index={index} />
+              ))}
+              {data.apps.length === 0 && <Empty>ArgoCD reports no applications.</Empty>}
             </div>
-
-            <div className="grid gap-4 xl:grid-cols-[1fr_20rem]">
-              <div className="space-y-4">
-                {[...tracked].sort(byUrgency).map((app) => (
-                  <AppCard key={app.name} app={app} />
-                ))}
-                {data.apps.length === 0 && <Empty>ArgoCD reports no applications.</Empty>}
-              </div>
-              <div className="space-y-4">
-                <PullRequests prs={data.pull_requests} />
-                {untracked.length > 0 && <OtherApps apps={untracked} />}
-              </div>
+            <div className="min-w-0 space-y-4">
+              <PullRequests prs={data.pull_requests} />
+              {untracked.length > 0 && <OtherApps apps={untracked} />}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </>
+      )}
+    </HudPage>
   );
 }
 
-function AppCard({ app }: { app: AppDelivery }) {
+function AppCard({ app, index }: { app: AppDelivery; index: number }) {
+  const tone = argoTone(app);
   return (
-    <Panel
+    <HudCard
+      eyebrow={`app ${String(index + 1).padStart(2, "0")}`}
       title={app.name}
       note={`${app.path} @ ${shortSha(app.revision)}`}
-      actions={
-        <Badge tone={argoTone(app)} title="ArgoCD sync / health">
+      status={
+        <span
+          title="ArgoCD sync / health"
+          className={`flex items-center gap-1.5 font-mono text-[11px] font-medium tracking-[0.15em] uppercase ${TONE[tone].text}`}
+        >
+          <GlowDot tone={tone} />
           {app.sync} · {app.health}
-        </Badge>
+        </span>
       }
-      flush
     >
       {app.components.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-ink-600">No image pins found in {app.path}/kustomization.yaml.</p>
+        <p className="px-6 pt-2 pb-5 text-xs text-ink-500">No image pins found in {app.path}/kustomization.yaml.</p>
       ) : (
-        <div className="divide-y divide-ink-850/60">
+        <div className="space-y-3 px-6 pt-3 pb-5">
           {app.components.map((component) => (
             <ComponentRow key={component.image} component={component} path={app.path || `apps/${app.name}`} />
           ))}
         </div>
       )}
-    </Panel>
+    </HudCard>
   );
 }
 
@@ -114,51 +116,58 @@ const TRACKING_LABEL = { helm: "helm chart", manifests: "plain manifests", kusto
  */
 function OtherApps({ apps }: { apps: AppDelivery[] }) {
   return (
-    <Panel title="Other apps" note="no image pin to track">
-      <ul className="space-y-3">
-        {apps.map((app) => (
-          <li key={app.name} className="text-xs">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-ink-200">{app.name}</span>
-              <span className="font-mono text-[10px] text-ink-600">{TRACKING_LABEL[app.tracking]}</span>
-              <span className="ml-auto">
-                <Badge tone={argoTone(app)}>
-                  {app.sync} · {app.health}
-                </Badge>
-              </span>
-            </div>
-            <p className="mt-0.5 text-[11px] text-ink-600">{app.note}</p>
-          </li>
-        ))}
+    <HudPanel title="other apps" note="no image pin">
+      <ul className="space-y-3.5">
+        {apps.map((app) => {
+          const tone = argoTone(app);
+          return (
+            <li key={app.name} className="flex flex-col gap-1">
+              <Leader label={<span className="text-ink-200">{app.name}</span>} value={<span className={TONE[tone].text}>{TRACKING_LABEL[app.tracking]}</span>} />
+              <p className="text-xs leading-snug text-ink-500">{app.note}</p>
+              {tone !== "ok" && (
+                <p className={`font-mono text-[10px] ${TONE[tone].text}`}>
+                  › {app.sync} · {app.health}
+                </p>
+              )}
+            </li>
+          );
+        })}
       </ul>
-    </Panel>
+    </HudPanel>
   );
 }
 
 function PullRequests({ prs }: { prs: PullRequestView[] }) {
   return (
-    <Panel title="Open PRs" note="Home-Lab-Infra">
-      {prs.length === 0 ? (
-        <Empty>Nothing waiting to merge. A merge here is what starts a deploy.</Empty>
-      ) : (
-        <ul className="space-y-3">
-          {prs.map((pr) => (
-            <li key={pr.number} className="text-xs">
-              <p className="flex items-baseline gap-2">
-                <span className="font-mono text-ink-600">#{pr.number}</span>
-                <span className="text-ink-200">{pr.title}</span>
-              </p>
-              <p className="mt-0.5 font-mono text-[10px] text-ink-600">
-                {pr.head} → {pr.base}
-                {pr.draft && " · draft"}
-                {pr.checks && ` · ${pr.checks}`}
-              </p>
-              {pr.url && <p className="mt-0.5 truncate font-mono text-[10px] text-sky-300/80">{pr.url}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
+    <HudPanel title="open prs" note={prs.length}>
+      <div className="flex flex-col gap-1.5 font-mono text-xs leading-relaxed">
+        <span className="text-ultron-300">› Home-Lab-Infra</span>
+        {prs.length === 0 ? (
+          <Aside>Nothing waiting to merge. A merge here is what starts a deploy.</Aside>
+        ) : (
+          <ul className="space-y-3 border-l border-ink-800 pl-3">
+            {prs.map((pr) => (
+              <li key={pr.number}>
+                <p className="flex items-baseline gap-2">
+                  <span className="text-ink-600">#{pr.number}</span>
+                  <span className="font-sans text-ink-200">{pr.title}</span>
+                </p>
+                <p className="mt-0.5 text-[10px] text-ink-600">
+                  {pr.head} → {pr.base}
+                  {pr.draft && " · draft"}
+                  {pr.checks && ` · ${pr.checks}`}
+                </p>
+                {pr.url && (
+                  <a href={pr.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-[10px] text-ultron-300/80 hover:text-ultron-300">
+                    {pr.url}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </HudPanel>
   );
 }
 

@@ -145,10 +145,23 @@ body {
     color-mix(in oklch, var(--color-ink-900) 85%, transparent);
   box-shadow: 0 0 24px -8px color-mix(in oklch, var(--color-rose-400) 50%, transparent);
 }
+/* The caution frame: amber - something wants a look, nothing is down yet. */
+.hud-caution,
+.hazard-warn {
+  --hazard: var(--color-amber-400);
+}
+.hud-caution {
+  border: 1px solid color-mix(in oklch, var(--color-amber-400) 42%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--color-amber-400) 8%, transparent), transparent 55%),
+    color-mix(in oklch, var(--color-ink-900) 85%, transparent);
+  box-shadow: 0 0 24px -10px color-mix(in oklch, var(--color-amber-400) 60%, transparent);
+}
+/* Hazard stripes in the frame's colour: rose by default, amber inside .hud-caution or with .hazard-warn. */
 .hud-hazard {
   background: repeating-linear-gradient(
     -45deg,
-    color-mix(in oklch, var(--color-rose-400) 10%, transparent) 0 8px,
+    color-mix(in oklch, var(--hazard, var(--color-rose-400)) 10%, transparent) 0 8px,
     transparent 8px 16px
   );
 }

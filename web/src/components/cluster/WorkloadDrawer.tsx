@@ -5,7 +5,7 @@ import type { ManifestKind, ReplicaSetView, WorkloadSummary } from "../../lib/co
 import { age, shortSha, splitImage } from "../../lib/format";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { Drawer } from "../ui/Drawer";
-import { Badge, Empty, ErrorNote, Facts, Labels, Learn, Loading, Panel, Tabs } from "../ui/primitives";
+import { Badge, Empty, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from "../ui/primitives";
 import { ConditionList } from "./ConditionList";
 import { EventFeed } from "./EventFeed";
 import { ManifestViewer } from "./ManifestViewer";
@@ -57,7 +57,7 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
           <Learn topic={KIND_TOPIC[w.kind]} />
           <Counters workload={w} />
 
-          <Panel title="Spec">
+          <CardPanel title="Spec">
             <Facts
               items={[
                 ["strategy", w.strategy],
@@ -67,31 +67,31 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
                 ["age", age(w.age)],
               ]}
             />
-          </Panel>
+          </CardPanel>
 
           {w.kind === "Deployment" && <ReplicaSetHistory sets={data.replica_sets} />}
 
           {w.conditions.length > 0 && (
-            <Panel title="Conditions">
+            <CardPanel title="Conditions">
               <ConditionList conditions={w.conditions} />
-            </Panel>
+            </CardPanel>
           )}
         </div>
       )}
 
       {data && tab === "pods" && (
         <div className="px-5 py-4">
-          <Panel title="Pods" note={w && `selector ${selectorText(w.selector)}`} flush>
+          <CardPanel title="Pods" note={w && `selector ${selectorText(w.selector)}`} flush>
             <PodTable pods={data.pods} onSelect={onSelect} showNamespace={false} />
-          </Panel>
+          </CardPanel>
         </div>
       )}
 
       {data && tab === "events" && (
         <div className="px-5 py-4">
-          <Panel title="Events" topic="events">
+          <CardPanel title="Events" topic="events">
             <EventFeed events={data.events} showNamespace={false} />
-          </Panel>
+          </CardPanel>
         </div>
       )}
 
@@ -115,7 +115,7 @@ function Counters({ workload }: { workload: WorkloadSummary }) {
   ] as const;
 
   return (
-    <Panel title="Replicas" topic="rollout">
+    <CardPanel title="Replicas" topic="rollout">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map(([label, value, hint]) => {
           const short = label !== "desired" && value < workload.desired;
@@ -129,7 +129,7 @@ function Counters({ workload }: { workload: WorkloadSummary }) {
         })}
       </div>
       <p className="mt-3 text-xs text-ink-400">{rolloutStory(workload)}</p>
-    </Panel>
+    </CardPanel>
   );
 }
 
@@ -140,7 +140,7 @@ function Counters({ workload }: { workload: WorkloadSummary }) {
  */
 function ReplicaSetHistory({ sets }: { sets: ReplicaSetView[] }) {
   return (
-    <Panel title="ReplicaSets" note="rollout history, newest first">
+    <CardPanel title="ReplicaSets" note="rollout history, newest first">
       {sets.length === 0 ? (
         <Empty>No ReplicaSets found for this selector.</Empty>
       ) : (
@@ -170,6 +170,6 @@ function ReplicaSetHistory({ sets }: { sets: ReplicaSetView[] }) {
           ))}
         </ol>
       )}
-    </Panel>
+    </CardPanel>
   );
 }

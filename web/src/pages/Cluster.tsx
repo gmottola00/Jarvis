@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { AttentionPanel } from "../components/cluster/AttentionPanel";
 import { EventFeed } from "../components/cluster/EventFeed";
-import { BracketTabs, Corners, HudHeading, TONE_COLOR } from "../components/cluster/hud";
 import { NamespaceFilter } from "../components/cluster/NamespaceFilter";
 import { NetworkMap } from "../components/cluster/NetworkMap";
 import { NodeCard } from "../components/cluster/NodeCard";
@@ -11,13 +10,11 @@ import type { Selection } from "../components/cluster/selection";
 import { WorkloadDrawer } from "../components/cluster/WorkloadDrawer";
 import { WarningLog } from "../components/cluster/WarningLog";
 import { WorkloadTable } from "../components/cluster/WorkloadTable";
-import { UltronCore } from "../components/shell/UltronCore";
-import { TONE } from "../components/ui/tone";
-import { Dot, ErrorNote, Learn, Loading, Panel } from "../components/ui/primitives";
+import { BracketTabs, HudPage, HudPanel, LiveStamp, Readouts, RefreshButton, type Readout } from "../components/hud";
+import { ErrorNote, Learn, Loading } from "../components/ui/primitives";
 import { consoleApi } from "../lib/console/api";
-import { podHealthy, splitRef, workloadComplete, type Tone } from "../lib/console/derive";
+import { podHealthy, splitRef, workloadComplete } from "../lib/console/derive";
 import type { ClusterSnapshot } from "../lib/console/types";
-import { clock } from "../lib/format";
 import { usePolling } from "../lib/hooks/usePolling";
 
 type Section = "overview" | "workloads" | "pods" | "network" | "events";
@@ -59,135 +56,113 @@ export function Cluster() {
   };
 
   return (
-    <div className="relative h-full">
-      <div className="hud-grid pointer-events-none absolute inset-0" aria-hidden />
-      <div className="scanlines absolute inset-0 opacity-40" aria-hidden />
-      <div className="relative h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-8">
-          <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <UltronCore size={44} live={snapshot.refreshing} />
-            <div className="min-w-0">
-              <h2 className="glow-red font-display text-3xl leading-none font-bold tracking-[0.35em] text-ultron-400">CLUSTER</h2>
-              <p className="mt-1.5 text-xs text-ink-500">Read-only view of the API server. Every number here is one kubectl command away.</p>
-            </div>
-            <div className="ml-auto flex flex-col items-end gap-2">
-              <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.15em] text-ink-600 uppercase">
-                <Dot tone={snapshot.error ? "bad" : "ok"} pulse />
-                live · poll {SNAPSHOT_MS / 1000}s{data && ` · ${clock(data.fetched_at)}`}
-              </span>
-              <button
-                type="button"
-                onClick={snapshot.refresh}
-                className="border border-ultron-800 bg-ultron-500/5 px-3.5 py-1.5 font-display text-xs font-semibold tracking-[0.15em] text-ultron-300 uppercase hover:border-ultron-500 hover:bg-ultron-500/15"
-              >
-                {snapshot.refreshing ? "… refreshing" : "↻ refresh"}
-              </button>
-            </div>
-          </header>
+    <HudPage
+      title="Cluster"
+      subtitle="Read-only view of the API server. Every number here is one kubectl command away."
+      live={snapshot.refreshing}
+      status={<LiveStamp error={Boolean(snapshot.error)} every={SNAPSHOT_MS} at={data?.fetched_at} />}
+      actions={<RefreshButton onClick={snapshot.refresh} refreshing={snapshot.refreshing} />}
+      overlay={
+        <>
+          {selection?.kind === "pod" && (
+            <PodDrawer namespace={selection.namespace} name={selection.name} workloads={data?.workloads ?? []} onSelect={setSelection} />
+          )}
+          {selection?.kind === "workload" && (
+            <WorkloadDrawer namespace={selection.namespace} name={selection.name} onSelect={setSelection} />
+          )}
+        </>
+      }
+    >
 
-          {snapshot.loading && <Loading label="asking the API server…" />}
-          <ErrorNote errors={snapshot.error} />
-          {data && <ErrorNote errors={data.errors} />}
+      {snapshot.loading && <Loading label="asking the API server…" />}
+      <ErrorNote errors={snapshot.error} />
+      {data && <ErrorNote errors={data.errors} />}
 
-          {data && (
+      {data && (
+        <>
+          <Summary snapshot={data} />
+          <NamespaceFilter namespaces={data.namespaces} value={namespace} onChange={setNamespace} />
+
+          <BracketTabs
+            value={section}
+            onChange={setSection}
+            tabs={[
+              { id: "overview", label: "overview" },
+              { id: "workloads", label: "workloads", count: workloads.length },
+              { id: "pods", label: "pods", count: allPods.length },
+              { id: "network", label: "network" },
+              { id: "events", label: "events" },
+            ]}
+          />
+
+          {section === "overview" && (
+            <div className="space-y-4">
+              {data.nodes.map((node, index) => (
+                <NodeCard
+                  key={node.name}
+                  node={node}
+                  usage={data.metrics.nodes.find((n) => n.name === node.name)}
+                  index={index}
+                  total={data.nodes.length}
+                />
+              ))}
+              {!data.metrics.available && (
+                <HudPanel title="live usage" note="metrics.k8s.io" topic="metrics">
+                  <p className="text-xs text-ink-400">
+                    Not available: <span className="font-mono text-amber-300">{data.metrics.reason}</span>. The gauges above are
+                    requests — reservations — not consumption.
+                  </p>
+                </HudPanel>
+              )}
+              <div className="grid items-start gap-4 xl:grid-cols-2">
+                <AttentionPanel pods={unhealthy} onSelect={setSelection} />
+                <WarningLog events={warnings} onObject={openRef} />
+              </div>
+            </div>
+          )}
+
+          {section === "workloads" && (
+            <HudPanel title="Workloads" note="deploy · sts · ds" topic="deployment" flush>
+              <WorkloadTable workloads={workloads} onSelect={setSelection} />
+            </HudPanel>
+          )}
+
+          {section === "pods" && (
+            <HudPanel
+              title="Pods"
+              topic="pod"
+              actions={
+                <label className="flex items-center gap-1.5 font-mono text-[10px] text-ink-600">
+                  <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
+                  problems only
+                </label>
+              }
+              flush
+            >
+              <PodTable pods={pods} onSelect={setSelection} showNamespace={namespace === "all"} />
+            </HudPanel>
+          )}
+
+          {section === "network" && (
             <>
-              <Summary snapshot={data} />
-              <NamespaceFilter namespaces={data.namespaces} value={namespace} onChange={setNamespace} />
-
-              <BracketTabs
-                value={section}
-                onChange={setSection}
-                tabs={[
-                  { id: "overview", label: "overview" },
-                  { id: "workloads", label: "workloads", count: workloads.length },
-                  { id: "pods", label: "pods", count: allPods.length },
-                  { id: "network", label: "network" },
-                  { id: "events", label: "events" },
-                ]}
-              />
-
-              {section === "overview" && (
-                <div className="space-y-4">
-                  {data.nodes.map((node, index) => (
-                    <NodeCard
-                      key={node.name}
-                      node={node}
-                      usage={data.metrics.nodes.find((n) => n.name === node.name)}
-                      index={index}
-                      total={data.nodes.length}
-                    />
-                  ))}
-                  {!data.metrics.available && (
-                    <section className="border border-ultron-500/22 bg-ink-900/85">
-                      <HudHeading title="live usage" note="metrics.k8s.io" />
-                      <Learn topic="metrics" className="mx-5 mt-3" />
-                      <p className="px-5 py-3.5 text-xs text-ink-400">
-                        Not available: <span className="font-mono text-amber-300">{data.metrics.reason}</span>. The gauges above are
-                        requests — reservations — not consumption.
-                      </p>
-                    </section>
-                  )}
-                  <div className="grid items-start gap-4 xl:grid-cols-2">
-                    <AttentionPanel pods={unhealthy} onSelect={setSelection} />
-                    <WarningLog events={warnings} onObject={openRef} />
-                  </div>
-                </div>
-              )}
-
-              {section === "workloads" && (
-                <Panel title="Workloads" note="deploy · sts · ds" topic="deployment" flush>
-                  <WorkloadTable workloads={workloads} onSelect={setSelection} />
-                </Panel>
-              )}
-
-              {section === "pods" && (
-                <Panel
-                  title="Pods"
-                  topic="pod"
-                  actions={
-                    <label className="flex items-center gap-1.5 font-mono text-[10px] text-ink-600">
-                      <input type="checkbox" checked={problemsOnly} onChange={(e) => setProblemsOnly(e.target.checked)} />
-                      problems only
-                    </label>
-                  }
-                  flush
-                >
-                  <PodTable pods={pods} onSelect={setSelection} showNamespace={namespace === "all"} />
-                </Panel>
-              )}
-
-              {section === "network" && (
-                <>
-                  {network.loading && <Loading />}
-                  <ErrorNote errors={network.error} />
-                  {network.data && <NetworkMap network={network.data} pods={data.pods} onSelect={setSelection} />}
-                </>
-              )}
-
-              {section === "events" && (
-                <Panel title="Events" note={events.data ? `${events.data.length}` : undefined} topic="events">
-                  {events.loading && <Loading />}
-                  <ErrorNote errors={events.error} />
-                  {events.data && <EventFeed events={events.data} onObject={openRef} showNamespace={namespace === "all"} />}
-                </Panel>
-              )}
+              {network.loading && <Loading />}
+              <ErrorNote errors={network.error} />
+              {network.data && <NetworkMap network={network.data} pods={data.pods} onSelect={setSelection} />}
             </>
           )}
-        </div>
-      </div>
 
-      {selection?.kind === "pod" && (
-        <PodDrawer namespace={selection.namespace} name={selection.name} workloads={data?.workloads ?? []} onSelect={setSelection} />
+          {section === "events" && (
+            <HudPanel title="Events" note={events.data ? `${events.data.length}` : undefined} topic="events">
+              {events.loading && <Loading />}
+              <ErrorNote errors={events.error} />
+              {events.data && <EventFeed events={events.data} onObject={openRef} showNamespace={namespace === "all"} />}
+            </HudPanel>
+          )}
+        </>
       )}
-      {selection?.kind === "workload" && (
-        <WorkloadDrawer namespace={selection.namespace} name={selection.name} onSelect={setSelection} />
-      )}
-    </div>
+    </HudPage>
   );
 }
-
-/** Under a readout that needs a look: the tone's colour, as a 2px rule. */
-const UNDERLINE: Partial<Record<Tone, string>> = { warn: "border-b-amber-400/60", bad: "border-b-rose-400/60" };
 
 /** The four numbers that answer "is anything wrong" before you scroll, in one framed strip. */
 function Summary({ snapshot }: { snapshot: ClusterSnapshot }) {
@@ -196,7 +171,7 @@ function Summary({ snapshot }: { snapshot: ClusterSnapshot }) {
   const complete = snapshot.workloads.filter(workloadComplete).length;
   const restarts = snapshot.pods.reduce((sum, p) => sum + p.restarts, 0);
 
-  const readouts: { label: string; value: string; sub: string; tone: Tone }[] = [
+  const readouts: Readout[] = [
     {
       label: "nodes",
       value: `${readyNodes}/${snapshot.nodes.length}`,
@@ -225,27 +200,7 @@ function Summary({ snapshot }: { snapshot: ClusterSnapshot }) {
 
   return (
     <div className="space-y-2">
-      <div className="relative grid grid-cols-2 gap-px border border-ultron-500/22 bg-ultron-500/15 lg:grid-cols-4">
-        <Corners />
-        {readouts.map((r) => (
-          <div
-            key={r.label}
-            className={`flex min-w-0 flex-col gap-1.5 border-b-2 border-b-transparent bg-ink-900 bg-linear-to-b from-ultron-500/6 to-transparent to-70% px-6 py-5 ${UNDERLINE[r.tone] ?? ""}`}
-          >
-            <p className="flex items-center gap-2 font-mono text-[10px] font-medium tracking-[0.2em] whitespace-nowrap text-ink-500 uppercase">
-              <span className={`size-1.5 ${TONE[r.tone].dot}`} style={{ boxShadow: `0 0 6px ${TONE_COLOR[r.tone]}` }} />
-              {r.label}
-            </p>
-            <p
-              className={`font-display text-4xl leading-none font-bold lg:text-5xl ${TONE[r.tone].text}`}
-              style={{ textShadow: "0 0 18px color-mix(in oklch, currentColor 35%, transparent)" }}
-            >
-              {r.value}
-            </p>
-            <p className="truncate font-mono text-[11px] text-ink-600">{r.sub}</p>
-          </div>
-        ))}
-      </div>
+      <Readouts readouts={readouts} />
       <Learn topic="namespace" />
     </div>
   );
