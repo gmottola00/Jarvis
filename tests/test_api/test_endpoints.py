@@ -358,3 +358,64 @@ class TestAudit:
     @pytest.mark.script([])
     async def test_unknown_run_is_404(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/runs/nope")).status_code == 404
+
+
+async def read_get_sse(client: httpx.AsyncClient, url: str) -> list[tuple[str, dict[str, Any]]]:
+    """Collect a GET SSE stream that ends on its own."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    async with client.stream("GET", url) as response:
+        assert response.status_code == 200
+        name: str | None = None
+        async for line in response.aiter_lines():
+            if line.startswith("event: "):
+                name = line[7:]
+            elif line.startswith("data: ") and name:
+                events.append((name, json.loads(line[6:])))
+                name = None
+    return events
+
+
+class TestConsoleLogs:
+    """The fake follows forever; ``previous`` and a finite stub end the stream."""
+
+    @pytest.mark.script([])
+    async def test_probes_are_hidden_by_default(self, client: httpx.AsyncClient) -> None:
+        url = "/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs/stream?previous=true"
+        texts = [data["text"] for name, data in await read_get_sse(client, url) if name == "line"]
+        assert texts and not any("GET /health" in t for t in texts)
+        assert any("/api/leagues" in t for t in texts)
+
+    @pytest.mark.script([])
+    async def test_probes_on_request(self, client: httpx.AsyncClient) -> None:
+        url = "/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs/stream?previous=true&exclude_probes=false"
+        events = await read_get_sse(client, url)
+        assert any("GET /health" in data["text"] for name, data in events if name == "line")
+        assert names(events)[-1] == "end"
+
+    @pytest.mark.script([])
+    async def test_one_shot_logs_filter_too(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs")).json()
+        assert "GET /health" not in body["text"] and "/api/leagues" in body["text"]
+
+    @pytest.mark.script([])
+    async def test_workload_stream_tags_lines_with_their_pod(
+        self, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from jarvis.tools.k8s.fake import FakeK8sClient
+
+        async def finite(self: Any, namespace: str, pod: str, **_: Any) -> AsyncIterator[str]:
+            yield 'INFO:     10.42.0.1:1 - "GET /health HTTP/1.1" 200 OK'
+            yield f"hello from {pod}"
+
+        monkeypatch.setattr(FakeK8sClient, "follow_logs", finite)
+        events = await read_get_sse(client, "/api/k8s/workloads/tickup/tickup-backend/logs/stream")
+        assert events[0][0] == "pods"
+        pods = events[0][1]["pods"]
+        lines = [data for name, data in events if name == "line"]
+        assert {line["pod"] for line in lines} == set(pods)
+        assert all(line["text"] == f"hello from {line['pod']}" for line in lines)
+        assert names(events)[-1] == "end"
+
+    @pytest.mark.script([])
+    async def test_unknown_workload_is_404(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/k8s/workloads/tickup/nope/logs/stream")).status_code == 404

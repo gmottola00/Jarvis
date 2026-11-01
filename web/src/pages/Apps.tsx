@@ -3,42 +3,12 @@ import { ErrorNote, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
 import { api } from "../lib/api";
 import { consoleApi } from "../lib/console/api";
-import type { Tone } from "../lib/console/derive";
-import type { AppDelivery, IngressView, NetworkView } from "../lib/console/types";
-import { shortSha, splitImage } from "../lib/format";
+import { ingressEntries, ollamaEntry, type Entry } from "../lib/console/apps";
 import { usePolling } from "../lib/hooks/usePolling";
-import type { ArgoAppStatus, GpuState } from "../lib/types";
+import { href } from "../lib/route";
 
 /** Delivery asks GHCR and GitHub on every call; a minute keeps it cheap. */
 const POLL_MS = 60_000;
-
-/** Namespaces that run the lab rather than live in it, and what each one is. Anything else is an app. */
-const PLATFORM: Record<string, string> = {
-  argocd: "gitops",
-  litellm: "gateway",
-  monitoring: "metrics",
-  observability: "metrics",
-  grafana: "metrics",
-  jarvis: "agent",
-};
-
-interface Fact {
-  k: string;
-  v: string;
-  tone?: Tone;
-  dim?: boolean;
-}
-
-interface Entry {
-  name: string;
-  kind: string;
-  host: string;
-  /** Empty while the operator has not handed out a tailnet address yet. */
-  url: string;
-  tone: Tone;
-  status: string;
-  facts: Fact[];
-}
 
 /**
  * Everything with an address on the tailnet, one click away: each Tailscale
@@ -72,7 +42,7 @@ export function Apps() {
   return (
     <HudPage
       title="Apps"
-      subtitle="Everything with an address on the tailnet, one click away."
+      subtitle="Everything with an address on the tailnet. Click a name for its page, logs for its logs."
       live={refreshing}
       status={
         <>
@@ -99,7 +69,7 @@ export function Apps() {
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {group.items.map((entry) => (
-              <AppCard key={entry.name} entry={entry} />
+              <AppCard key={entry.name} entry={entry} inCluster={group.title !== "off cluster"} />
             ))}
           </div>
         </section>
@@ -108,74 +78,7 @@ export function Apps() {
   );
 }
 
-/** `trip-ai.tail9c2f1.ts.net/api → trip-ai-backend:8000` → `["/api", "trip-ai-backend"]`. */
-function parseRule(rule: string): [string, string] {
-  const [from, to = ""] = rule.split(" → ");
-  const slash = from.indexOf("/");
-  return [slash < 0 ? "/" : from.slice(slash), to.split(":")[0]];
-}
-
-function repoName(url: string): string {
-  return url.replace(/^(https?:\/\/github\.com\/|git@github\.com:)/, "").replace(/\.git$/, "");
-}
-
-function ingressEntries(network: NetworkView, argo: ArgoAppStatus[], delivery: AppDelivery[]): Entry[] {
-  return network.ingresses
-    .filter((ing) => ing.class_name === "tailscale")
-    .map((ing) => ingressEntry(ing, network, argo.find((a) => a.name === ing.namespace), delivery.find((d) => d.name === ing.namespace)));
-}
-
-function ingressEntry(ing: IngressView, network: NetworkView, app: ArgoAppStatus | undefined, delivery: AppDelivery | undefined): Entry {
-  const routes = ing.rules.map(parseRule);
-  const empty = routes
-    .map(([, service]) => network.services.find((s) => s.namespace === ing.namespace && s.name === service))
-    .filter((s) => s && s.endpoints.length === 0)
-    .map((s) => s!.name.replace(`${ing.namespace}-`, ""));
-  const healthy = app ? app.sync === "Synced" && app.health === "Healthy" : true;
-  const tone: Tone = !ing.address ? "idle" : routes.length && empty.length === routes.length ? "bad" : empty.length || !healthy ? "warn" : "ok";
-
-  const status = [app ? `${app.sync} · ${app.health}` : "not tracked by argocd", ...empty.map((name) => `${name} has no endpoints`)];
-  if (!ing.address) status.push("no tailnet address yet");
-
-  const facts: Fact[] = [];
-  if (app?.repo) facts.push({ k: "repo", v: repoName(app.repo) });
-  if (app?.path) facts.push({ k: "path", v: app.path });
-  for (const c of delivery?.components ?? []) {
-    const { name } = splitImage(c.image);
-    const tag = shortSha(c.running_tag || c.git_tag);
-    facts.push({ k: c.component.replace(`${ing.namespace}-`, ""), v: `ghcr · ${name}:${tag}`, tone: c.status === "in-sync" ? undefined : c.status === "unknown" ? "idle" : "warn" });
-  }
-  if (routes.length) facts.push({ k: "routes", v: routes.map(([path, svc]) => `${path} → ${svc}`).join(" · "), dim: true });
-
-  return {
-    name: ing.namespace,
-    kind: PLATFORM[ing.namespace] ?? "app",
-    host: ing.address || ing.hosts[0] || ing.name,
-    url: ing.address ? `https://${ing.address}` : "",
-    tone,
-    status: status.join(" · "),
-    facts,
-  };
-}
-
-function ollamaEntry(gpu: GpuState, fallback: string): Entry {
-  const loaded = gpu.resident.map((r) => r.name);
-  return {
-    name: "ollama",
-    kind: "local llm",
-    host: gpu.url.replace(/^https?:\/\//, ""),
-    url: gpu.url,
-    tone: gpu.up ? "ok" : "idle",
-    status: gpu.up ? (loaded.length ? `${loaded.join(", ")} in VRAM` : "answering · nothing loaded") : "not answering · local/* offline",
-    facts: [
-      { k: "api", v: "/api/ps · /api/tags" },
-      { k: "via", v: "litellm · local/*" },
-      ...(fallback ? [{ k: "fallback", v: fallback, dim: true }] : []),
-    ],
-  };
-}
-
-function AppCard({ entry }: { entry: Entry }) {
+function AppCard({ entry, inCluster }: { entry: Entry; inCluster: boolean }) {
   const off = !entry.url || entry.tone === "idle";
   return (
     <ToneCard
@@ -184,7 +87,17 @@ function AppCard({ entry }: { entry: Entry }) {
       header={
         <>
           <GlowDot tone={entry.tone} />
-          <span className="font-display text-xl leading-none font-bold tracking-[0.12em] text-ink-200">{entry.name}</span>
+          {inCluster ? (
+            <a
+              href={href("apps", entry.name)}
+              className="font-display text-xl leading-none font-bold tracking-[0.12em] text-ink-200 hover:text-ultron-300"
+              title={`Open ${entry.name}: logs, pods, delivery, events`}
+            >
+              {entry.name} <span className="font-mono text-sm text-ink-600">→</span>
+            </a>
+          ) : (
+            <span className="font-display text-xl leading-none font-bold tracking-[0.12em] text-ink-200">{entry.name}</span>
+          )}
           <span className="ml-auto border border-ink-800 px-2 py-px font-display text-[11px] font-semibold tracking-[0.18em] text-ink-400 uppercase">
             {entry.kind}
           </span>
@@ -204,12 +117,20 @@ function AppCard({ entry }: { entry: Entry }) {
       </div>
       <div className="mt-auto flex items-center gap-3 border-t border-ink-850 px-4 py-3">
         <span className={`text-xs leading-snug ${entry.tone === "ok" ? "text-ink-500" : TONE[entry.tone].text}`}>{entry.status}</span>
+        {inCluster && (
+          <a
+            href={href("apps", entry.name, "logs")}
+            className="ml-auto flex shrink-0 items-center border border-ink-700 px-3.5 py-1.5 font-display text-xs font-semibold tracking-[0.2em] text-ink-300 uppercase hover:border-ink-500 hover:text-ink-200"
+          >
+            logs
+          </a>
+        )}
         {entry.url && (
           <a
             href={entry.url}
             target="_blank"
             rel="noreferrer"
-            className={`ml-auto flex shrink-0 items-center gap-2 border px-3.5 py-1.5 font-display text-xs font-semibold tracking-[0.2em] uppercase ${
+            className={`${inCluster ? "" : "ml-auto "}flex shrink-0 items-center gap-2 border px-3.5 py-1.5 font-display text-xs font-semibold tracking-[0.2em] uppercase ${
               off
                 ? "border-ink-800 text-ink-600 hover:text-ink-300"
                 : "border-ultron-500/70 bg-ultron-500/10 text-ultron-300 hover:bg-ultron-500/22 hover:text-ink-200"

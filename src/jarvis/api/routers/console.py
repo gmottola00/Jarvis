@@ -38,6 +38,7 @@ from jarvis.core.console import (
 from jarvis.exceptions import UpstreamError
 from jarvis.logging import get_logger
 from jarvis.tools import k8s
+from jarvis.tools.k8s.logfilter import is_probe
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/k8s", tags=["console"])
@@ -143,6 +144,13 @@ async def workloads(namespace: str = Query("all")) -> list[WorkloadSummary]:
         raise _fail(exc) from exc
 
 
+def _owned(pods: list[PodDetail], name: str, selector: dict[str, str]) -> list[PodDetail]:
+    """The pods a workload selects, falling back to the name prefix."""
+    return [p for p in pods if all(p.labels.get(k) == v for k, v in selector.items())] or [
+        p for p in pods if p.name.startswith(f"{name}-")
+    ]
+
+
 @router.get("/workloads/{namespace}/{name}", response_model=WorkloadDetail)
 async def workload(namespace: str, name: str) -> WorkloadDetail:
     """One workload with its replica sets, its pods and its events.
@@ -166,9 +174,7 @@ async def workload(namespace: str, name: str) -> WorkloadDetail:
 
     pods = await _attempt("pods", lambda: client.pod_details(namespace), errors) or []
     selector = summary.selector or {"app": name}
-    mine = [p for p in pods if all(p.labels.get(k) == v for k, v in selector.items())] or [
-        p for p in pods if p.name.startswith(f"{name}-")
-    ]
+    mine = _owned(pods, name, selector)
 
     replica_sets: list[ReplicaSetView] = []
     if summary.kind == "Deployment":
@@ -214,12 +220,19 @@ async def logs(
     name: str,
     container: str | None = Query(None),
     tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    previous: bool = Query(False),
+    exclude_probes: bool = Query(True),
 ) -> dict[str, Any]:
     """A pod's recent log, as one blob. Use ``/logs/stream`` to follow it."""
     try:
-        text = await _client().pod_logs(namespace, name, tail=tail, container=container)
+        text = await _client().pod_logs(
+            namespace, name, tail=tail, container=container, since_seconds=since_seconds, previous=previous
+        )
     except UpstreamError as exc:
         raise _fail(exc) from exc
+    if exclude_probes:
+        text = "\n".join(line for line in text.splitlines() if not is_probe(line))
     return {"namespace": namespace, "pod": name, "container": container, "text": text}
 
 
@@ -229,23 +242,100 @@ async def logs_stream(
     name: str,
     container: str | None = Query(None),
     tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    previous: bool = Query(False),
+    exclude_probes: bool = Query(True),
 ) -> Any:
     """Follow a pod's log over SSE.
 
     Reuses the chat stream's transport, so the browser has one parser for both.
     The client closing the connection cancels the upstream watch — that is what
-    the ``finally`` in the client's ``follow_logs`` is for.
+    the ``finally`` in the client's ``follow_logs`` is for. Probe access lines
+    are dropped here unless ``exclude_probes=false``.
     """
 
     async def lines() -> AsyncIterator[dict[str, Any]]:
         client = _client()
         try:
-            async for line in client.follow_logs(namespace, name, container=container, tail=tail):
+            async for line in client.follow_logs(
+                namespace, name, container=container, tail=tail, since_seconds=since_seconds, previous=previous
+            ):
+                if exclude_probes and is_probe(line):
+                    continue
                 yield {"type": "line", "text": line}
+            yield {"type": "end"}
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the viewer gets a reason in-band
             yield {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
+
+    return stream(lines())
+
+
+MAX_STREAMED_PODS = 10
+
+
+@router.get("/workloads/{namespace}/{name}/logs/stream")
+async def workload_logs_stream(
+    namespace: str,
+    name: str,
+    container: str | None = Query(None),
+    tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    exclude_probes: bool = Query(True),
+) -> Any:
+    """Follow every pod of a workload at once, each line tagged with its pod.
+
+    This is what "the app's logs" means: whichever replica served the request,
+    after however many restarts and rollouts. Pods are resolved once when the
+    stream opens; a rollout ends their streams and the viewer reconnects.
+    """
+    client = _client()
+    try:
+        found = [w for w in await client.workloads(namespace) if w.name == name]
+        pods = await client.pod_details(namespace)
+    except UpstreamError as exc:
+        raise _fail(exc) from exc
+    if not found:
+        raise HTTPException(status_code=404, detail=f"no workload {namespace}/{name}")
+    mine = _owned(pods, name, found[0].selector or {"app": name})[:MAX_STREAMED_PODS]
+
+    async def lines() -> AsyncIterator[dict[str, Any]]:
+        if not mine:
+            yield {"type": "error", "message": f"{namespace}/{name} has no pods"}
+            return
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=1000)
+
+        async def pump(pod: str) -> None:
+            try:
+                async for line in client.follow_logs(
+                    namespace, pod, container=container, tail=tail, since_seconds=since_seconds
+                ):
+                    if exclude_probes and is_probe(line):
+                        continue
+                    await queue.put({"type": "line", "pod": pod, "text": line})
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - one dead pod should not end the others
+                await queue.put({"type": "line", "pod": pod, "text": f"[jarvis] stream failed: {exc}"})
+            finally:
+                await queue.put(None)
+
+        tasks = [asyncio.create_task(pump(p.name)) for p in mine]
+        try:
+            yield {"type": "pods", "pods": [p.name for p in mine]}
+            open_streams = len(tasks)
+            while open_streams:
+                event = await queue.get()
+                if event is None:
+                    open_streams -= 1
+                else:
+                    yield event
+            yield {"type": "end"}
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     return stream(lines())
 

@@ -9,6 +9,7 @@ deliberately no ``apply``, ``patch``, ``delete`` or ``scale`` here to call.
 from __future__ import annotations
 
 import asyncio
+import codecs
 from typing import Any, AsyncIterator
 
 from jarvis.core.console import (
@@ -41,6 +42,26 @@ from jarvis.tools.k8s.quantity import parse_cpu, parse_memory
 logger = get_logger(__name__)
 
 _UNHEALTHY_PHASES = {"Pending", "Failed", "Unknown"}
+
+
+async def split_lines(chunks: AsyncIterator[bytes]) -> AsyncIterator[str]:
+    """Re-cut a byte stream into lines.
+
+    The kubelet's chunks follow TCP, not newlines: one chunk can hold several
+    lines or half of one. Filtering and the viewer both work per line, so the
+    partial tail is carried over to the next chunk.
+    """
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    pending = ""
+    async for chunk in chunks:
+        pending += decoder.decode(chunk)
+        *complete, pending = pending.split("\n")
+        for line in complete:
+            line = line.rstrip("\r")
+            if line:
+                yield line
+    if pending.strip():
+        yield pending.rstrip("\r")
 
 
 class K8sClient:
@@ -151,12 +172,26 @@ class K8sClient:
         pods = await self.list_pods("all")
         return [p for p in pods if p.phase in _UNHEALTHY_PHASES or (p.ready and p.ready.split("/")[0] == "0")]
 
-    async def pod_logs(self, namespace: str, pod: str, *, tail: int = 100, container: str | None = None) -> str:
+    async def pod_logs(
+        self,
+        namespace: str,
+        pod: str,
+        *,
+        tail: int = 100,
+        container: str | None = None,
+        since_seconds: int | None = None,
+        previous: bool = False,
+    ) -> str:
         """Return the tail of a pod's log."""
         core = await self._core()
         try:
             text: str = await core.read_namespaced_pod_log(
-                name=pod, namespace=namespace, tail_lines=tail, container=container
+                name=pod,
+                namespace=namespace,
+                tail_lines=tail,
+                container=container,
+                since_seconds=since_seconds,
+                previous=previous,
             )
             return text
         except Exception as exc:
@@ -450,7 +485,14 @@ class K8sClient:
         return MetricsView(available=True, nodes=nodes, pods=pods)
 
     async def follow_logs(
-        self, namespace: str, pod: str, *, container: str | None = None, tail: int = 200
+        self,
+        namespace: str,
+        pod: str,
+        *,
+        container: str | None = None,
+        tail: int = 200,
+        since_seconds: int | None = None,
+        previous: bool = False,
     ) -> AsyncIterator[str]:
         """Yield log lines as the kubelet produces them, until the caller stops.
 
@@ -465,17 +507,18 @@ class K8sClient:
                 namespace=namespace,
                 container=container,
                 tail_lines=tail,
-                follow=True,
+                since_seconds=since_seconds,
+                previous=previous,
+                # A previous container has exited: there is nothing to follow.
+                follow=not previous,
                 _preload_content=False,
             )
         except Exception as exc:
             raise UpstreamError("k8s", f"follow logs for {namespace}/{pod} failed: {exc}") from exc
 
         try:
-            async for chunk in response.content:
-                text = chunk.decode("utf-8", errors="replace").rstrip("\n")
-                if text:
-                    yield text
+            async for line in split_lines(response.content):
+                yield line
         finally:
             response.release()
 

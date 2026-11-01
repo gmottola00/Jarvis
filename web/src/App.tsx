@@ -1,21 +1,22 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ICONS, Sidebar } from "./components/shell/Sidebar";
 import { clearSession } from "./lib/api";
 import { LearnModeProvider } from "./lib/hooks/useLearnMode";
+import { navigate, useHashRoute } from "./lib/route";
 import { Cluster } from "./pages/Cluster";
 import { Dashboard } from "./pages/Dashboard";
 import { Delivery } from "./pages/Delivery";
 import { Alerts } from "./pages/Alerts";
 import { Approvals } from "./pages/Approvals";
+import { AppDetail } from "./pages/AppDetail";
 import { Apps } from "./pages/Apps";
 import { Capabilities } from "./pages/Capabilities";
-import { Lab } from "./pages/Lab";
 import { Models } from "./pages/Models";
 import { Runs } from "./pages/Runs";
 
 /**
- * Two halves: the agent (chat, runs, approvals, models, capabilities, lab) *decides and changes*;
- * the console (cluster, delivery, apps, alerts) *looks*, with no model involved — until a
+ * Two halves: the agent (chat, runs, approvals, models, capabilities) *decides and changes*;
+ * the console (apps, cluster, delivery, alerts) *looks*, with no model involved — until a
  * console page hands something over, as "Investigate" on an alert does.
  */
 const TABS = [
@@ -24,37 +25,22 @@ const TABS = [
   { id: "approvals", label: "approvals", icon: ICONS.approvals },
   { id: "models", label: "models", icon: ICONS.models },
   { id: "capabilities", label: "capabilities", icon: ICONS.capabilities },
-  { id: "lab", label: "lab", icon: ICONS.lab },
+  { id: "apps", label: "apps", icon: ICONS.apps },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
-  { id: "apps", label: "apps", icon: ICONS.apps },
   { id: "alerts", label: "alerts", icon: ICONS.alerts },
 ] as const;
 
 /** Where the console group starts in `TABS`. */
-const CONSOLE_FROM = 6;
+const CONSOLE_FROM = 5;
 
 type Tab = (typeof TABS)[number]["id"];
 
-/** The tab lives in the URL hash, so a reload — or a shared link — lands on the same page. */
-function useHashTab(): [Tab, (tab: Tab) => void] {
-  const read = (): Tab => {
-    const hash = window.location.hash.slice(1);
-    return TABS.some((t) => t.id === hash) ? (hash as Tab) : "dashboard";
-  };
-  const [tab, setTab] = useState<Tab>(read);
-
-  useEffect(() => {
-    const onHash = () => setTab(read());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-
-  return [tab, (next) => (window.location.hash = next)];
-}
-
 function Shell() {
-  const [tab, setTab] = useHashTab();
+  const route = useHashRoute();
+  const tab: Tab = TABS.some((t) => t.id === route.page) ? (route.page as Tab) : "dashboard";
+  const setTab = (next: Tab) => navigate(next);
+  const [section, sub] = route.segments;
   // Bumping the key remounts the chat; with no stored session it mints a new one.
   const [chatKey, setChatKey] = useState(0);
 
@@ -74,10 +60,9 @@ function Shell() {
         {tab === "approvals" && <Approvals />}
         {tab === "models" && <Models />}
         {tab === "capabilities" && <Capabilities />}
-        {tab === "lab" && <Lab />}
-        {tab === "cluster" && <Cluster />}
+        {tab === "apps" && (section ? <AppDetail key={section} name={section} tab={sub} /> : <Apps />)}
+        {tab === "cluster" && <Cluster tab={section} />}
         {tab === "delivery" && <Delivery />}
-        {tab === "apps" && <Apps />}
         {tab === "alerts" && <Alerts />}
       </main>
     </div>

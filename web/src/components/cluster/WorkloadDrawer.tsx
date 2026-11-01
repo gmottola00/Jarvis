@@ -6,6 +6,7 @@ import { age, shortSha, splitImage } from "../../lib/format";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { Drawer } from "../ui/Drawer";
 import { Badge, Empty, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from "../ui/primitives";
+import { AppLink } from "./AppLink";
 import { ConditionList } from "./ConditionList";
 import { EventFeed } from "./EventFeed";
 import { ManifestViewer } from "./ManifestViewer";
@@ -34,7 +35,12 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
       onClose={() => onSelect(null)}
       eyebrow={w ? `${w.kind} · ${namespace}` : namespace}
       title={name}
-      aside={w && <Badge tone={workloadTone(w)}>{w.ready}/{w.desired} ready</Badge>}
+      aside={
+        <span className="flex items-center gap-2">
+          <AppLink namespace={namespace} />
+          {w && <Badge tone={workloadTone(w)}>{w.ready}/{w.desired} ready</Badge>}
+        </span>
+      }
     >
       <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-5 py-2">
         <Tabs

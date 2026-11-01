@@ -662,7 +662,16 @@ class FakeK8sClient:
         broken = {p.name for p in _PODS if not p.healthy}
         return [p for p in await self.list_pods("all") if p.name in broken]
 
-    async def pod_logs(self, namespace: str, pod: str, *, tail: int = 100, container: str | None = None) -> str:
+    async def pod_logs(
+        self,
+        namespace: str,
+        pod: str,
+        *,
+        tail: int = 100,
+        container: str | None = None,
+        since_seconds: int | None = None,
+        previous: bool = False,
+    ) -> str:
         return "\n".join(_LOG.splitlines()[-tail:])
 
     async def list_events(self, namespace: str = "all", *, limit: int = 30) -> list[dict[str, Any]]:
@@ -816,7 +825,14 @@ class FakeK8sClient:
         return MetricsView(available=False, reason="metrics-server is not installed in this cluster")
 
     async def follow_logs(
-        self, namespace: str, pod: str, *, container: str | None = None, tail: int = 200
+        self,
+        namespace: str,
+        pod: str,
+        *,
+        container: str | None = None,
+        tail: int = 200,
+        since_seconds: int | None = None,
+        previous: bool = False,
     ) -> AsyncIterator[str]:
         """Replay the fixture log, then dribble out new lines on a timer."""
         import asyncio
@@ -824,6 +840,8 @@ class FakeK8sClient:
 
         for line in _LOG.splitlines()[-tail:]:
             yield line
+        if previous:
+            return
         for index in itertools.count():
             await asyncio.sleep(2.0)
             yield _FOLLOW[index % len(_FOLLOW)]

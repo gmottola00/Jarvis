@@ -9,6 +9,7 @@ import { Badge, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from
 import { ConditionList } from "./ConditionList";
 import { ContainerCard } from "./ContainerCard";
 import { EventFeed } from "./EventFeed";
+import { AppLink } from "./AppLink";
 import { LogViewer } from "./LogViewer";
 import { ManifestViewer } from "./ManifestViewer";
 import { OwnerChain } from "./OwnerChain";
@@ -45,7 +46,12 @@ export function PodDrawer({
       onClose={() => onSelect(null)}
       eyebrow={data ? <OwnerChain chain={ownerChain(data, workloads)} onSelect={(link) => onSelect({ kind: "workload", namespace, name: link.name })} /> : namespace}
       title={name}
-      aside={data && <Badge tone={podTone(data)}>{podStatus(data)}</Badge>}
+      aside={
+        <span className="flex items-center gap-2">
+          <AppLink namespace={namespace} />
+          {data && <Badge tone={podTone(data)}>{podStatus(data)}</Badge>}
+        </span>
+      }
     >
       <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-5 py-2">
         <Tabs
@@ -123,7 +129,7 @@ export function PodDrawer({
         <div className="flex h-full flex-col">
           <Learn topic="logs" className="mx-5 my-3" />
           <div className="min-h-0 flex-1">
-            <LogViewer namespace={namespace} pod={name} containers={data.containers.map((c) => c.name)} />
+            <LogViewer source={{ kind: "pod", namespace, pod: name, containers: data.containers.map((c) => c.name) }} />
           </div>
         </div>
       )}
