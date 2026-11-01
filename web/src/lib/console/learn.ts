@@ -164,3 +164,36 @@ export const LESSONS = {
 } satisfies Record<string, Lesson>;
 
 export type Topic = keyof typeof LESSONS;
+
+/**
+ * What a status word means, for the ones that show up in badges. Shown as the
+ * badge's tooltip always, and spelled out under it in learn mode.
+ */
+export const STATES: Record<string, string> = {
+  Running: "All containers started; at least one is still running. Running is not ready: check the READY column.",
+  Pending: "Accepted by the API server but not running yet: waiting for a node, a volume, or an image pull.",
+  ContainerCreating: "Scheduled on a node; the kubelet is pulling images and setting up volumes and networking.",
+  Completed: "Every container exited with code 0. Normal for Jobs, a problem for a Deployment.",
+  Succeeded: "Every container exited with code 0 and will not restart.",
+  Failed: "Every container has terminated and at least one failed. Read the previous log and the last exit code.",
+  Terminating: "Deletion requested; containers got SIGTERM and have the grace period to exit.",
+  CrashLoopBackOff:
+    "The container keeps exiting and the kubelet waits longer before each restart (up to 5 minutes). The cause is in the previous container's log.",
+  ImagePullBackOff:
+    "The image cannot be pulled and the kubelet is backing off. Wrong tag, missing image, or no credentials for the registry (imagePullSecrets).",
+  ErrImagePull: "The last image pull failed. Becomes ImagePullBackOff after repeated failures.",
+  OOMKilled: "The container used more memory than its limit and the kernel killed it (exit code 137). Raise the limit or fix the leak.",
+  Error: "The container exited with a non-zero code. The log of that run says why.",
+  CreateContainerConfigError: "The container spec refers to something missing, usually a Secret or ConfigMap key.",
+  Evicted: "The node ran short of a resource (memory, disk) and the kubelet removed the pod to protect itself.",
+  Synced: "The cluster matches what Git declares for this ArgoCD application.",
+  OutOfSync: "The cluster differs from Git: a newer commit not applied yet, or a manual change in the cluster.",
+  Healthy: "Every resource of the application reports healthy: rollouts done, pods ready.",
+  Progressing: "A rollout or a resource is still converging. Fine for a while; stuck means a problem.",
+  Degraded: "At least one resource is failing: a rollout that timed out, pods not becoming ready.",
+  Missing: "Git declares a resource that does not exist in the cluster.",
+};
+
+export function explainState(state: string): string | undefined {
+  return STATES[state];
+}

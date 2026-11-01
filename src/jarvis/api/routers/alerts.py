@@ -10,35 +10,22 @@ starts a run by itself; a person decides to.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from jarvis.agent.playbooks import investigate_alert
+from jarvis.api.fetch import attempt
 from jarvis.core.console import AlertsOverview, AlertView, TargetView
-from jarvis.logging import get_logger
 from jarvis.tools import alertmanager, prometheus
 
-logger = get_logger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
-
-T = TypeVar("T")
 
 
 class AlertBrief(BaseModel):
     fingerprint: str
     prompt: str
-
-
-async def _attempt(name: str, call: Callable[[], Awaitable[T]], errors: dict[str, str]) -> T | None:
-    """Run one fetch, recording the failure instead of propagating it."""
-    try:
-        return await call()
-    except Exception as exc:  # noqa: BLE001 - a dead upstream is a card, not a 500
-        errors[name] = f"{type(exc).__name__}: {exc}"
-        logger.warning("alerts.fetch_failed", target=name, error=str(exc))
-        return None
 
 
 def _target(raw: dict[str, Any]) -> TargetView:
@@ -55,12 +42,12 @@ async def overview(include_silenced: bool = False) -> AlertsOverview:
     """Firing alerts from Alertmanager and failing scrape targets from Prometheus."""
     errors: dict[str, str] = {}
     alerts, targets = await asyncio.gather(
-        _attempt(
+        attempt(
             "alertmanager.alerts",
             lambda: alertmanager.provider.get().alerts(include_suppressed=include_silenced),
             errors,
         ),
-        _attempt("prometheus.targets", lambda: prometheus.provider.get().targets_down(), errors),
+        attempt("prometheus.targets", lambda: prometheus.provider.get().targets_down(), errors),
     )
     return AlertsOverview(alerts=alerts or [], targets_down=[_target(t) for t in targets or []], errors=errors)
 

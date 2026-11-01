@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BracketTabs, HudCard, HudPage, HudPanel, LiveStamp, Quiet, Readouts, RefreshButton, type Readout } from "../components/hud";
+import { BracketTabs, GlowDot, HudCard, HudPage, HudPanel, Leader, LiveStamp, Quiet, Readouts, RefreshButton, type Readout } from "../components/hud";
 import { RISK_TONE } from "../components/runs/status";
 import { ErrorNote, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
@@ -108,8 +108,9 @@ export function Capabilities() {
               })}
             </div>
 
-            <div className="min-w-0 xl:sticky xl:top-0">
+            <div className="min-w-0 space-y-4 xl:sticky xl:top-0">
               <ToolDetail tool={selected} usage={usage(selected)} policy={data.policy} days={data.usage_days} />
+              <Policy capabilities={data} />
             </div>
           </div>
         </>
@@ -290,5 +291,32 @@ function Figure({ value, label, className = "text-ink-200" }: { value: number | 
       <span className={`font-display text-[26px] leading-none font-bold ${className}`}>{value}</span>
       <span className="font-mono text-[10.5px] text-ink-600">{label}</span>
     </div>
+  );
+}
+
+/** How the gate treats each risk level, which model answers, and where runs are kept. */
+function Policy({ capabilities }: { capabilities: Caps }) {
+  const live = !capabilities.fake_tools;
+  return (
+    <HudPanel
+      title="Policy"
+      note={
+        <span className={`flex items-center gap-1.5 ${live ? "text-emerald-300" : "text-amber-300"}`}>
+          <GlowDot tone={live ? "ok" : "warn"} size="sm" pulse />
+          {live ? "live" : "fixtures"}
+        </span>
+      }
+    >
+      <div className="space-y-2.5">
+        {Object.entries(capabilities.policy).map(([risk, rule]) => (
+          <Leader key={risk} label={risk} value={<span className={risk === "destructive" ? "text-ultron-300" : "text-ink-200"}>{rule}</span>} />
+        ))}
+        <Leader className="pt-2" label="model" value={<span className="text-ink-200">{capabilities.model}</span>} />
+        <Leader
+          label="durable"
+          value={<span className={capabilities.durable ? "text-ink-200" : "text-amber-300"}>{capabilities.durable ? "postgres" : "in-memory"}</span>}
+        />
+      </div>
+    </HudPanel>
   );
 }

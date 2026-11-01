@@ -184,7 +184,7 @@ function GateCard({ wait, onDecided }: { wait: Waiting; onDecided: () => void })
           <span className="font-mono text-[11px] text-ink-600" title={wait.since}>
             waiting {since(wait.since)}
           </span>
-          <a href="#runs" className="ml-auto font-mono text-[11px] font-medium tracking-[0.1em] text-ink-500 hover:text-ink-200">
+          <a href="#jarvis/runs" className="ml-auto font-mono text-[11px] font-medium tracking-[0.1em] text-ink-500 hover:text-ink-200">
             {wait.run_id} ↗
           </a>
         </>

@@ -303,6 +303,7 @@ export interface AppDelivery {
   sync: string;
   health: string;
   revision: string;
+  repo: string;
   path: string;
   tracking: Tracking;
   /** Why a non-`kustomize` app has no rows. */
@@ -385,3 +386,43 @@ export type ManifestKind =
   | "daemonset"
   | "replicaset"
   | "ingress";
+
+/* --- Status --------------------------------------------------------------- */
+
+export type ProblemKind = "node" | "pod" | "argo" | "alert" | "event" | "gateway" | "approval";
+
+/** One thing that wants a look, whatever system it came from. */
+export interface Problem {
+  id: string;
+  kind: ProblemKind;
+  severity: "bad" | "warn";
+  title: string;
+  namespace: string;
+  /** The subject: a pod, an ArgoCD app, an alert fingerprint, a run id. */
+  name: string;
+  detail: string;
+  since: string | null;
+  /** The console view that shows it, as a URL hash. */
+  link: string;
+  /** Whether `/api/status/brief` can turn it into a chat prompt. */
+  investigable: boolean;
+}
+
+export interface StatusCounts {
+  nodes: number;
+  nodes_ready: number;
+  unhealthy_pods: number;
+  argo_apps: number;
+  argo_unhealthy: number;
+  alerts: number;
+  approvals: number;
+  /** null when there is no GPU host to probe. */
+  gpu_up: boolean | null;
+}
+
+export interface StatusView {
+  problems: Problem[];
+  counts: StatusCounts;
+  errors: Record<string, string>;
+  fetched_at: string;
+}

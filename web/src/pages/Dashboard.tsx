@@ -215,15 +215,19 @@ export function Dashboard() {
     setBusy(false);
   }
 
+  // `send` is a new function every render; callbacks and effects below read the
+  // latest one through this ref instead of re-running whenever it changes.
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
   const decideFallback = useCallback(
     (useFallback: boolean) => {
       const held = fallback;
       setFallback(null);
       if (!held) return;
-      if (useFallback) void send(held.text, true);
+      if (useFallback) void sendRef.current(held.text, true);
       else setDraft({ text: held.text });
     },
-    // `send` changes every render; this only needs the held message.
     [fallback],
   );
 
@@ -251,9 +255,8 @@ export function Dashboard() {
     if (!handoff || !sessionId) return;
     clearHandoff();
     setHandoff(null);
-    void send(handoff);
-    // `send` is deliberately not a dependency: it changes every render, and this
-    // must fire once per handoff, not once per render.
+    // Once per handoff, through the ref: `send` itself changes every render.
+    void sendRef.current(handoff);
   }, [handoff, sessionId]);
 
   const llmDown = capabilities !== null && !capabilities.llm_ready;

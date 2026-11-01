@@ -49,7 +49,7 @@ port-forward: ## Forward Prometheus :9090, Alertmanager :9093, Loki :3100 from t
 
 # --- quality -----------------------------------------------------------------
 
-.PHONY: lint format format-check typecheck test test-cov web-typecheck check
+.PHONY: lint format format-check typecheck test test-cov web-typecheck web-lint check
 lint: ## Lint
 	$(PY) ruff check $(SRC) tests scripts
 
@@ -66,6 +66,9 @@ typecheck: ## Type-check the backend
 
 web-typecheck: ## Type-check the dashboard
 	cd $(WEB) && npm run typecheck
+
+web-lint: ## Lint the dashboard (hooks rules: stale closures are bugs tsc cannot see)
+	cd $(WEB) && npm run lint
 
 test: ## Run the tests
 	$(PY) pytest -q

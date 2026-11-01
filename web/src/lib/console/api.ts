@@ -9,7 +9,10 @@ import type {
   ManifestKind,
   NetworkView,
   PodDetail,
+  Problem,
+  StatusView,
   WorkloadDetail,
+  WorkloadSummary,
 } from "./types";
 
 async function get<T>(path: string): Promise<T> {
@@ -33,6 +36,8 @@ export const consoleApi = {
   events: (namespace = "all", limit = 200) =>
     get<EventRecord[]>(`/api/k8s/events?namespace=${seg(namespace)}&limit=${limit}`),
 
+  workloads: (namespace = "all") => get<WorkloadSummary[]>(`/api/k8s/workloads?namespace=${seg(namespace)}`),
+  pods: (namespace = "all") => get<PodDetail[]>(`/api/k8s/pods?namespace=${seg(namespace)}`),
   workload: (namespace: string, name: string) =>
     get<WorkloadDetail>(`/api/k8s/workloads/${seg(namespace)}/${seg(name)}`),
   pod: (namespace: string, name: string) => get<PodDetail>(`/api/k8s/pods/${seg(namespace)}/${seg(name)}`),
@@ -42,14 +47,43 @@ export const consoleApi = {
 
   delivery: () => get<DeliveryOverview>("/api/delivery/overview"),
 
+  status: () => get<StatusView>("/api/status"),
+  /** The investigation prompt for one status problem — what its "Investigate" button sends. */
+  statusBrief: (problem: Pick<Problem, "kind" | "namespace" | "name">) =>
+    get<{ prompt: string }>(
+      `/api/status/brief?${new URLSearchParams({ kind: problem.kind, namespace: problem.namespace, name: problem.name })}`,
+    ),
+
   alerts: (includeSilenced = false) => get<AlertsOverview>(`/api/alerts?include_silenced=${includeSilenced}`),
   /** The investigation prompt for one alert — what the "Investigate" button sends to the agent. */
   alertBrief: (fingerprint: string) => get<AlertBrief>(`/api/alerts/${seg(fingerprint)}/brief`),
 };
 
-/** URL of the SSE log stream. A GET, so the browser's own `EventSource` can read it. */
-export function logStreamUrl(namespace: string, pod: string, opts: { container?: string; tail?: number } = {}): string {
+export interface LogStreamOptions {
+  container?: string;
+  tail?: number;
+  sinceSeconds?: number;
+  /** The container instance before the last restart: what it said before it crashed. */
+  previous?: boolean;
+  /** Kubelet probe access lines are dropped server-side unless this is true. */
+  probes?: boolean;
+}
+
+function logQuery(opts: LogStreamOptions): URLSearchParams {
   const query = new URLSearchParams({ tail: String(opts.tail ?? 200) });
   if (opts.container) query.set("container", opts.container);
-  return `/api/k8s/pods/${seg(namespace)}/${seg(pod)}/logs/stream?${query}`;
+  if (opts.sinceSeconds) query.set("since_seconds", String(opts.sinceSeconds));
+  if (opts.previous) query.set("previous", "true");
+  if (opts.probes) query.set("exclude_probes", "false");
+  return query;
+}
+
+/** URL of a pod's SSE log stream. A GET, so the browser's own `EventSource` can read it. */
+export function logStreamUrl(namespace: string, pod: string, opts: LogStreamOptions = {}): string {
+  return `/api/k8s/pods/${seg(namespace)}/${seg(pod)}/logs/stream?${logQuery(opts)}`;
+}
+
+/** Every pod of a workload, merged; each line carries the pod it came from. */
+export function workloadLogStreamUrl(namespace: string, workload: string, opts: Omit<LogStreamOptions, "previous"> = {}): string {
+  return `/api/k8s/workloads/${seg(namespace)}/${seg(workload)}/logs/stream?${logQuery(opts)}`;
 }

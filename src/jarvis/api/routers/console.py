@@ -18,10 +18,11 @@ per capability rather than raised: one unreachable upstream degrades one card.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Query
 
+from jarvis.api.fetch import attempt, merge, upstream_http_error
 from jarvis.api.sse import stream
 from jarvis.core.console import (
     ClusterSnapshot,
@@ -36,34 +37,15 @@ from jarvis.core.console import (
     WorkloadSummary,
 )
 from jarvis.exceptions import UpstreamError
-from jarvis.logging import get_logger
 from jarvis.tools import k8s
+from jarvis.tools.k8s.logfilter import is_probe
 
-logger = get_logger(__name__)
 router = APIRouter(prefix="/api/k8s", tags=["console"])
-
-T = TypeVar("T")
 
 
 def _client() -> Any:
     """The Kubernetes client — live or faked, depending on settings."""
     return k8s.provider.get()
-
-
-async def _attempt(name: str, call: Callable[[], Awaitable[T]], errors: dict[str, str]) -> T | None:
-    """Run one fetch, recording the failure instead of propagating it."""
-    try:
-        return await call()
-    except Exception as exc:  # noqa: BLE001 - a dead upstream is a card, not a 500
-        errors[name] = f"{type(exc).__name__}: {exc}"
-        logger.warning("console.fetch_failed", target=name, error=str(exc))
-        return None
-
-
-def _fail(exc: Exception) -> HTTPException:
-    """Turn an upstream failure into a status code the browser can act on."""
-    status = getattr(exc, "status", None)
-    return HTTPException(status_code=status if isinstance(status, int) and status >= 400 else 502, detail=str(exc))
 
 
 # ============================================================================
@@ -81,14 +63,14 @@ async def snapshot() -> ClusterSnapshot:
     errors: dict[str, str] = {}
     client = _client()
 
-    pods = await _attempt("pods", lambda: client.pod_details("all"), errors) or []
+    pods = await attempt("pods", lambda: client.pod_details("all"), errors) or []
 
     nodes, namespaces, workloads, events, metrics = await asyncio.gather(
-        _attempt("nodes", lambda: client.node_details(pods=pods), errors),
-        _attempt("namespaces", lambda: client.namespaces(pods=pods), errors),
-        _attempt("workloads", lambda: client.workloads("all"), errors),
-        _attempt("events", lambda: client.events("all", limit=200), errors),
-        _attempt("metrics", lambda: client.metrics(), errors),
+        attempt("nodes", lambda: client.node_details(pods=pods), errors),
+        attempt("namespaces", lambda: client.namespaces(pods=pods), errors),
+        attempt("workloads", lambda: client.workloads("all"), errors),
+        attempt("events", lambda: client.events("all", limit=200), errors),
+        attempt("metrics", lambda: client.metrics(), errors),
     )
 
     warnings = [e for e in (events or []) if e.type == "Warning"][:25]
@@ -118,7 +100,7 @@ async def namespaces() -> list[NamespaceSummary]:
         result: list[NamespaceSummary] = await client.namespaces(pods=pods)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/nodes", response_model=list[NodeDetail])
@@ -130,7 +112,7 @@ async def nodes() -> list[NodeDetail]:
         result: list[NodeDetail] = await client.node_details(pods=pods)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/workloads", response_model=list[WorkloadSummary])
@@ -140,7 +122,14 @@ async def workloads(namespace: str = Query("all")) -> list[WorkloadSummary]:
         result: list[WorkloadSummary] = await _client().workloads(namespace)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
+
+
+def _owned(pods: list[PodDetail], name: str, selector: dict[str, str]) -> list[PodDetail]:
+    """The pods a workload selects, falling back to the name prefix."""
+    return [p for p in pods if all(p.labels.get(k) == v for k, v in selector.items())] or [
+        p for p in pods if p.name.startswith(f"{name}-")
+    ]
 
 
 @router.get("/workloads/{namespace}/{name}", response_model=WorkloadDetail)
@@ -158,25 +147,23 @@ async def workload(namespace: str, name: str) -> WorkloadDetail:
     try:
         found = [w for w in await client.workloads(namespace) if w.name == name]
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
     if not found:
         raise HTTPException(status_code=404, detail=f"no workload {namespace}/{name}")
     summary = found[0]
 
-    pods = await _attempt("pods", lambda: client.pod_details(namespace), errors) or []
+    pods = await attempt("pods", lambda: client.pod_details(namespace), errors) or []
     selector = summary.selector or {"app": name}
-    mine = [p for p in pods if all(p.labels.get(k) == v for k, v in selector.items())] or [
-        p for p in pods if p.name.startswith(f"{name}-")
-    ]
+    mine = _owned(pods, name, selector)
 
     replica_sets: list[ReplicaSetView] = []
     if summary.kind == "Deployment":
         replica_sets = (
-            await _attempt("replicasets", lambda: client.replica_sets(namespace, selector=selector), errors) or []
+            await attempt("replicasets", lambda: client.replica_sets(namespace, selector=selector), errors) or []
         )
 
-    events = await _attempt("events", lambda: client.events(namespace, limit=200), errors) or []
+    events = await attempt("events", lambda: client.events(namespace, limit=200), errors) or []
     names = {p.name for p in mine} | {name}
     related = [e for e in events if any(e.object.endswith(n) or n in e.object for n in names)][:40]
 
@@ -194,7 +181,7 @@ async def pods(namespace: str = Query("all"), unhealthy: bool = Query(False)) ->
     try:
         found: list[PodDetail] = await _client().pod_details(namespace)
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
     return [p for p in found if not p.healthy] if unhealthy else found
 
 
@@ -205,7 +192,7 @@ async def pod(namespace: str, name: str) -> PodDetail:
         result: PodDetail = await _client().pod_detail(namespace, name)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/pods/{namespace}/{name}/logs")
@@ -214,12 +201,19 @@ async def logs(
     name: str,
     container: str | None = Query(None),
     tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    previous: bool = Query(False),
+    exclude_probes: bool = Query(True),
 ) -> dict[str, Any]:
     """A pod's recent log, as one blob. Use ``/logs/stream`` to follow it."""
     try:
-        text = await _client().pod_logs(namespace, name, tail=tail, container=container)
+        text = await _client().pod_logs(
+            namespace, name, tail=tail, container=container, since_seconds=since_seconds, previous=previous
+        )
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
+    if exclude_probes:
+        text = "\n".join(line for line in text.splitlines() if not is_probe(line))
     return {"namespace": namespace, "pod": name, "container": container, "text": text}
 
 
@@ -229,23 +223,80 @@ async def logs_stream(
     name: str,
     container: str | None = Query(None),
     tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    previous: bool = Query(False),
+    exclude_probes: bool = Query(True),
 ) -> Any:
     """Follow a pod's log over SSE.
 
     Reuses the chat stream's transport, so the browser has one parser for both.
     The client closing the connection cancels the upstream watch — that is what
-    the ``finally`` in the client's ``follow_logs`` is for.
+    the ``finally`` in the client's ``follow_logs`` is for. Probe access lines
+    are dropped here unless ``exclude_probes=false``.
     """
 
     async def lines() -> AsyncIterator[dict[str, Any]]:
         client = _client()
         try:
-            async for line in client.follow_logs(namespace, name, container=container, tail=tail):
+            async for line in client.follow_logs(
+                namespace, name, container=container, tail=tail, since_seconds=since_seconds, previous=previous
+            ):
+                if exclude_probes and is_probe(line):
+                    continue
                 yield {"type": "line", "text": line}
+            yield {"type": "end"}
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the viewer gets a reason in-band
             yield {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
+
+    return stream(lines())
+
+
+MAX_STREAMED_PODS = 10
+
+
+@router.get("/workloads/{namespace}/{name}/logs/stream")
+async def workload_logs_stream(
+    namespace: str,
+    name: str,
+    container: str | None = Query(None),
+    tail: int = Query(200, ge=1, le=5000),
+    since_seconds: int | None = Query(None, ge=1),
+    exclude_probes: bool = Query(True),
+) -> Any:
+    """Follow every pod of a workload at once, each line tagged with its pod.
+
+    This is what "the app's logs" means: whichever replica served the request,
+    after however many restarts and rollouts. Pods are resolved once when the
+    stream opens; a rollout ends their streams and the viewer reconnects.
+    """
+    client = _client()
+    try:
+        found = [w for w in await client.workloads(namespace) if w.name == name]
+        pods = await client.pod_details(namespace)
+    except UpstreamError as exc:
+        raise upstream_http_error(exc) from exc
+    if not found:
+        raise HTTPException(status_code=404, detail=f"no workload {namespace}/{name}")
+    mine = _owned(pods, name, found[0].selector or {"app": name})[:MAX_STREAMED_PODS]
+
+    async def follow(pod: str) -> AsyncIterator[str]:
+        async for line in client.follow_logs(
+            namespace, pod, container=container, tail=tail, since_seconds=since_seconds
+        ):
+            if not (exclude_probes and is_probe(line)):
+                yield line
+
+    async def lines() -> AsyncIterator[dict[str, Any]]:
+        if not mine:
+            yield {"type": "error", "message": f"{namespace}/{name} has no pods"}
+            return
+        yield {"type": "pods", "pods": [p.name for p in mine]}
+        async for pod, item in merge({p.name: follow(p.name) for p in mine}):
+            text = f"[jarvis] stream failed: {item}" if isinstance(item, BaseException) else item
+            yield {"type": "line", "pod": pod, "text": text}
+        yield {"type": "end"}
 
     return stream(lines())
 
@@ -262,7 +313,7 @@ async def network(namespace: str = Query("all")) -> NetworkView:
         result: NetworkView = await _client().network(namespace)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/events", response_model=list[EventRecord])
@@ -275,7 +326,7 @@ async def events(
     try:
         found: list[EventRecord] = await _client().events(namespace, limit=limit)
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
     return [e for e in found if e.type == "Warning"] if warnings_only else found
 
 
@@ -290,7 +341,7 @@ async def manifest(kind: str, namespace: str, name: str) -> dict[str, Any]:
         result: dict[str, Any] = await _client().manifest(kind, namespace, name)
         return result
     except UpstreamError as exc:
-        raise _fail(exc) from exc
+        raise upstream_http_error(exc) from exc
 
 
 @router.get("/metrics", response_model=MetricsView)

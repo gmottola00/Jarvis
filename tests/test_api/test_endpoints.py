@@ -86,17 +86,6 @@ class TestHealthAndCapabilities:
         assert usage["k8s__list_nodes"]["errors"] == 0
 
 
-class TestLabOverview:
-    @pytest.mark.script([])
-    async def test_overview_aggregates_capabilities(self, client: httpx.AsyncClient) -> None:
-        body = (await client.get("/api/lab/overview")).json()
-        assert [n["name"] for n in body["nodes"]] == ["um790"]
-        assert {a["name"] for a in body["apps"]} == {"trip-ai", "tickup"}
-        assert body["unhealthy_pods"][0]["reason"] == "ImagePullBackOff"
-        assert body["degraded"] is True
-        assert body["errors"] == {}
-
-
 class TestAlerts:
     async def test_alerts_page(self, client: httpx.AsyncClient) -> None:
         body = (await client.get("/api/alerts")).json()
@@ -113,8 +102,8 @@ class TestAlerts:
     async def test_brief_for_a_resolved_alert_is_404(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/alerts/deadbeef/brief")).status_code == 404
 
-    async def test_overview_counts_firing_alerts(self, client: httpx.AsyncClient) -> None:
-        assert (await client.get("/api/lab/overview")).json()["firing_alerts"] == 3
+    async def test_status_counts_firing_alerts(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/status")).json()["counts"]["alerts"] == 3
 
     async def test_unconfigured_alertmanager_degrades_one_source(self, client: httpx.AsyncClient, monkeypatch) -> None:
         from jarvis.exceptions import ConfigurationError
@@ -129,9 +118,9 @@ class TestAlerts:
         assert response.status_code == 200
         assert "JARVIS_ALERTMANAGER_URL" in response.json()["errors"]["alertmanager.alerts"]
 
-        overview = (await client.get("/api/lab/overview")).json()
-        assert overview["firing_alerts"] == 0
-        assert "alertmanager.alerts" not in overview["errors"]
+        status = (await client.get("/api/status")).json()
+        assert status["counts"]["alerts"] == 0
+        assert "alertmanager.alerts" not in status["errors"]
 
 
 class TestChat:
@@ -358,3 +347,134 @@ class TestAudit:
     @pytest.mark.script([])
     async def test_unknown_run_is_404(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/runs/nope")).status_code == 404
+
+
+async def read_get_sse(client: httpx.AsyncClient, url: str) -> list[tuple[str, dict[str, Any]]]:
+    """Collect a GET SSE stream that ends on its own."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    async with client.stream("GET", url) as response:
+        assert response.status_code == 200
+        name: str | None = None
+        async for line in response.aiter_lines():
+            if line.startswith("event: "):
+                name = line[7:]
+            elif line.startswith("data: ") and name:
+                events.append((name, json.loads(line[6:])))
+                name = None
+    return events
+
+
+class TestConsoleLogs:
+    """The fake follows forever; ``previous`` and a finite stub end the stream."""
+
+    @pytest.mark.script([])
+    async def test_probes_are_hidden_by_default(self, client: httpx.AsyncClient) -> None:
+        url = "/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs/stream?previous=true"
+        texts = [data["text"] for name, data in await read_get_sse(client, url) if name == "line"]
+        assert texts and not any("GET /health" in t for t in texts)
+        assert any("/api/leagues" in t for t in texts)
+
+    @pytest.mark.script([])
+    async def test_probes_on_request(self, client: httpx.AsyncClient) -> None:
+        url = "/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs/stream?previous=true&exclude_probes=false"
+        events = await read_get_sse(client, url)
+        assert any("GET /health" in data["text"] for name, data in events if name == "line")
+        assert names(events)[-1] == "end"
+
+    @pytest.mark.script([])
+    async def test_one_shot_logs_filter_too(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/k8s/pods/tickup/tickup-backend-5f7c8d9b6-qw3rt/logs")).json()
+        assert "GET /health" not in body["text"] and "/api/leagues" in body["text"]
+
+    @pytest.mark.script([])
+    async def test_workload_stream_tags_lines_with_their_pod(
+        self, client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from jarvis.tools.k8s.fake import FakeK8sClient
+
+        async def finite(self: Any, namespace: str, pod: str, **_: Any) -> AsyncIterator[str]:
+            yield 'INFO:     10.42.0.1:1 - "GET /health HTTP/1.1" 200 OK'
+            yield f"hello from {pod}"
+
+        monkeypatch.setattr(FakeK8sClient, "follow_logs", finite)
+        events = await read_get_sse(client, "/api/k8s/workloads/tickup/tickup-backend/logs/stream")
+        assert events[0][0] == "pods"
+        pods = events[0][1]["pods"]
+        lines = [data for name, data in events if name == "line"]
+        assert {line["pod"] for line in lines} == set(pods)
+        assert all(line["text"] == f"hello from {line['pod']}" for line in lines)
+        assert names(events)[-1] == "end"
+
+    @pytest.mark.script([])
+    async def test_unknown_workload_is_404(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/k8s/workloads/tickup/nope/logs/stream")).status_code == 404
+
+
+class TestStatus:
+    @pytest.mark.script([])
+    async def test_problems_from_every_source_worst_first(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        kinds = {p["kind"] for p in body["problems"]}
+        assert {"pod", "argo", "alert", "event"} <= kinds
+        severities = [p["severity"] for p in body["problems"]]
+        assert severities == sorted(severities, key=lambda s: s != "bad")
+        assert body["counts"]["unhealthy_pods"] >= 1 and body["counts"]["alerts"] >= 1
+        assert body["errors"] == {}
+
+    @pytest.mark.script([])
+    async def test_a_problem_pod_links_to_its_components_logs(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        pod = next(p for p in body["problems"] if p["kind"] == "pod")
+        assert pod["link"] == "#cluster/apps/tickup/logs/tickup-web"
+
+    @pytest.mark.script([])
+    async def test_events_about_a_problem_pod_are_not_repeated(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        pods = {p["name"] for p in body["problems"] if p["kind"] == "pod"}
+        assert not any(p["name"].removeprefix("Pod/") in pods for p in body["problems"] if p["kind"] == "event")
+
+    @pytest.mark.script([])
+    async def test_a_dead_upstream_costs_only_its_rows(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.tools.argocd.fake import FakeArgoCDClient
+
+        async def down(self: Any) -> list[Any]:
+            raise RuntimeError("argocd is down")
+
+        monkeypatch.setattr(FakeArgoCDClient, "list_apps", down)
+        body = (await client.get("/api/status")).json()
+        assert "argocd.apps" in body["errors"]
+        assert not any(p["kind"] == "argo" for p in body["problems"])
+        assert any(p["kind"] == "pod" for p in body["problems"])
+
+    @pytest.mark.script([])
+    async def test_brief_for_each_kind(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        for problem in body["problems"]:
+            if not problem["investigable"]:
+                continue
+            response = await client.get(
+                "/api/status/brief",
+                params={"kind": problem["kind"], "namespace": problem["namespace"], "name": problem["name"]},
+            )
+            assert response.status_code == 200, problem
+            assert response.json()["prompt"].startswith("Investigate")
+
+    @pytest.mark.script([])
+    async def test_brief_for_a_vanished_pod_is_404(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/api/status/brief", params={"kind": "pod", "namespace": "tickup", "name": "gone-123"}
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.script([])
+    async def test_alert_brief_without_alertmanager_is_503(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.exceptions import ConfigurationError
+        from jarvis.tools import alertmanager
+
+        def unconfigured() -> None:
+            raise ConfigurationError("alertmanager is not configured: set JARVIS_ALERTMANAGER_URL")
+
+        monkeypatch.setattr(alertmanager.provider, "get", unconfigured)
+        response = await client.get("/api/status/brief", params={"kind": "alert", "name": "59917779b926e5e6"})
+        assert response.status_code == 503
+        assert "JARVIS_ALERTMANAGER_URL" in response.json()["detail"]

@@ -246,21 +246,47 @@ class ArgoAppStatus(BaseModel):
     path: str = ""
 
 
-class LabOverview(BaseModel):
-    """Everything the right-hand column of the dashboard needs, in one call."""
+ProblemKind = Literal["node", "pod", "argo", "alert", "event", "gateway", "approval"]
 
-    nodes: list[NodeStatus] = Field(default_factory=list)
-    apps: list[ArgoAppStatus] = Field(default_factory=list)
-    unhealthy_pods: list[PodStatus] = Field(default_factory=list)
-    firing_alerts: int = 0
-    """Active alerts, heartbeats and silenced ones excluded."""
 
-    degraded: bool = False
-    """True when anything needs attention — drives the header badge."""
+class Problem(BaseModel):
+    """One thing on the status page that wants a look, whatever system it came from."""
 
+    id: str
+    kind: ProblemKind
+    severity: Literal["bad", "warn"]
+    title: str
+    namespace: str = ""
+    name: str = ""
+    """The subject: a pod, an ArgoCD app, an alert fingerprint, a run id."""
+
+    detail: str = ""
+    since: datetime | None = None
+    link: str = ""
+    """The console view that shows it, as a URL hash (``#cluster/apps/tickup/logs``)."""
+
+    investigable: bool = True
+    """Whether ``/api/status/brief`` can turn it into a chat prompt."""
+
+
+class StatusCounts(BaseModel):
+    nodes: int = 0
+    nodes_ready: int = 0
+    unhealthy_pods: int = 0
+    argo_apps: int = 0
+    argo_unhealthy: int = 0
+    alerts: int = 0
+    approvals: int = 0
+    gpu_up: bool | None = None
+    """None when there is no GPU host to probe."""
+
+
+class StatusView(BaseModel):
+    """The answer to "is everything fine?": every problem, worst first."""
+
+    problems: list[Problem] = Field(default_factory=list)
+    counts: StatusCounts = Field(default_factory=StatusCounts)
     errors: dict[str, str] = Field(default_factory=dict)
-    """Per-capability failures, so one dead upstream does not blank the page."""
-
     fetched_at: datetime = Field(default_factory=_now)
 
 
@@ -271,7 +297,10 @@ __all__ = [
     "Decision",
     "DoneEvent",
     "ErrorEvent",
-    "LabOverview",
+    "Problem",
+    "ProblemKind",
+    "StatusCounts",
+    "StatusView",
     "NodeStatus",
     "PodStatus",
     "RiskLevel",

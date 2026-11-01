@@ -20,33 +20,22 @@ whether it needs to.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Literal, TypeVar
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 
 from jarvis.api.deps import Services, services
+from jarvis.api.fetch import attempt
 from jarvis.core.console import AppDelivery, ComponentDelivery, DeliveryOverview, PullRequestView
 from jarvis.core.kustomize import parse_images
 from jarvis.exceptions import UpstreamError
-from jarvis.logging import get_logger
 from jarvis.tools import argocd, ghcr, github, k8s
 
-logger = get_logger(__name__)
 router = APIRouter(prefix="/api/delivery", tags=["delivery"])
 
-T = TypeVar("T")
 
 _GREEN_DEPTH = 6
 """How many recent tags to ask GitHub about before giving up on finding a green one."""
-
-
-async def _attempt(name: str, call: Callable[[], Awaitable[T]], errors: dict[str, str]) -> T | None:
-    try:
-        return await call()
-    except Exception as exc:  # noqa: BLE001 - a dead upstream is a cell, not a 500
-        errors[name] = f"{type(exc).__name__}: {exc}"
-        logger.warning("delivery.fetch_failed", target=name, error=str(exc))
-        return None
 
 
 def _tag_of(image: str) -> str:
@@ -67,7 +56,7 @@ async def _newest_tags(image: str, errors: dict[str, str]) -> tuple[str, str, st
     """Return ``(newest, newest_green, published_at, recent)`` for one image."""
     # Clients are resolved inside the attempt: missing credentials are a
     # ConfigurationError, and that should cost a cell, not the whole page.
-    tags = await _attempt(f"ghcr.{image}", lambda: ghcr.provider.get().sha_tags(image, limit=20), errors)
+    tags = await attempt(f"ghcr.{image}", lambda: ghcr.provider.get().sha_tags(image, limit=20), errors)
     if not tags:
         return "", "", "", []
 
@@ -150,7 +139,7 @@ async def _components(app: str, path: str, file_result: Any, errors: dict[str, s
     git_known = file_result is not None
     pins = parse_images(file_result[0]) if file_result else []
 
-    workloads = await _attempt(f"k8s.{app}", lambda: k8s.provider.get().workloads(app), errors) or []
+    workloads = await attempt(f"k8s.{app}", lambda: k8s.provider.get().workloads(app), errors) or []
     running: dict[str, tuple[str, bool]] = {}
     for workload in workloads:
         for image in workload.images:
@@ -213,7 +202,7 @@ async def overview(
     """Every app's Git pin, running tag and newest green build, side by side."""
     errors: dict[str, str] = {}
 
-    apps = await _attempt("argocd", lambda: argocd.provider.get().list_apps(), errors) or []
+    apps = await attempt("argocd", lambda: argocd.provider.get().list_apps(), errors) or []
 
     async def one(app: Any) -> AppDelivery:
         tracking, note, file_result = await _read_pins(app.name, app.path, errors, svc)
@@ -222,6 +211,7 @@ async def overview(
             sync=app.sync,
             health=app.health,
             revision=app.revision,
+            repo=app.repo,
             path=app.path,
             tracking=tracking,
             note=note,
@@ -233,7 +223,7 @@ async def overview(
     pull_requests: list[PullRequestView] = []
     if include_prs:
         repo = svc.settings.github_infra_repo
-        found = await _attempt("github.prs", lambda: github.provider.get().list_prs(repo, state="open"), errors) or []
+        found = await attempt("github.prs", lambda: github.provider.get().list_prs(repo, state="open"), errors) or []
         pull_requests = [
             PullRequestView(
                 repo=repo,
