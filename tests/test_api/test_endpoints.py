@@ -11,11 +11,11 @@ from typing import Any, AsyncIterator
 
 import httpx
 import pytest
+from quaerium.agents import RiskLevel
+from quaerium.agents.testing import ScriptedLLM
 
-from jarvis.agent.llm import ScriptedLLM
 from jarvis.agent.models import ModelCatalog
 from jarvis.api.app import create_app
-from jarvis.core.types import RiskLevel
 from jarvis.settings import Settings
 
 

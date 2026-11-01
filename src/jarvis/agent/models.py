@@ -29,9 +29,9 @@ from datetime import datetime, timezone
 from typing import Callable, Literal
 
 import httpx
+from quaerium.agents import get_logger
+from quaerium.agents.llm import is_native
 
-from jarvis.agent.llm import is_native
-from jarvis.logging import get_logger
 from jarvis.settings import Settings
 
 logger = get_logger(__name__)

@@ -13,17 +13,21 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jarvis.core.types import RiskLevel
-from jarvis.tools.base import ToolSpec, tool
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
+from jarvis.settings import Settings, get_settings
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 from jarvis.tools.prometheus.client import PrometheusClient
 from jarvis.tools.prometheus.fake import FakePrometheusClient
-from jarvis.tools.provider import ClientProvider
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="prometheus",
+    settings=get_settings,
     real=lambda s: PrometheusClient(s),
     fake=FakePrometheusClient,
+    use_fake=use_fake,
     requires=lambda s: [] if s.prometheus_url else ["JARVIS_PROMETHEUS_URL"],
+    hint=FAKE_HINT,
 )
 
 MAX_SERIES = 50

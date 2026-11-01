@@ -8,17 +8,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.core.types import RiskLevel
-from jarvis.tools.base import ToolSpec, tool
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
+from jarvis.settings import Settings, get_settings
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 from jarvis.tools.k8s.client import K8sClient
 from jarvis.tools.k8s.fake import FakeK8sClient
-from jarvis.tools.provider import ClientProvider
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="k8s",
+    settings=get_settings,
     real=lambda s: K8sClient(s),
     fake=FakeK8sClient,
+    use_fake=use_fake,
     requires=lambda s: [],  # kubeconfig discovery handles its own fallbacks
+    hint=FAKE_HINT,
 )
 
 

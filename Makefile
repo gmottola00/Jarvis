@@ -19,6 +19,16 @@ dev: ## Install with dev and all optional dependencies
 	uv venv --python 3.12
 	uv pip install -e ".[dev,postgres,redis,k8s]"
 
+# The lock pins Quaerium from PyPI (what CI and the image use). To work on both
+# at once, install the sibling checkout over it. `uv sync` / `uv run` would put
+# the PyPI version back, so run the targets with UV_NO_SYNC=1 afterwards:
+#   make quaerium-dev && UV_NO_SYNC=1 make check
+QUAERIUM ?= ../Quaerium
+
+.PHONY: quaerium-dev
+quaerium-dev: ## Use the editable Quaerium checkout at ../Quaerium (then UV_NO_SYNC=1 make ...)
+	uv pip install -e "$(QUAERIUM)[agents,server,agents-postgres,agents-redis]"
+
 web-install: ## Install dashboard dependencies
 	cd $(WEB) && npm install
 

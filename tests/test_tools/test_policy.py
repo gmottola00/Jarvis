@@ -1,12 +1,13 @@
-"""The policy gate's mapping."""
+"""Jarvis's policy: the kernel's gate with Jarvis's meaning of each level."""
 
 from __future__ import annotations
 
-from jarvis.core.policy import PolicyGate
-from jarvis.core.types import Decision, RiskLevel
+from quaerium.agents import Decision, RiskLevel
+
+from jarvis.agent.policy import build_policy
 
 
-class TestPolicyGate:
+class TestPolicy:
     def test_configured_policy(self, policy) -> None:
         assert policy.decide(RiskLevel.READ).decision is Decision.ALLOW
         assert policy.decide(RiskLevel.WRITE).decision is Decision.ALLOW
@@ -16,10 +17,10 @@ class TestPolicyGate:
         assert "Git" in policy.decide(RiskLevel.WRITE).why
 
     def test_confirm_writes_escalates(self) -> None:
-        gate = PolicyGate(confirm_writes=True)
+        gate = build_policy(confirm_writes=True)
         assert gate.decide(RiskLevel.WRITE).needs_human
         assert gate.decide(RiskLevel.READ).allowed
 
     def test_block_destructive_refuses_instead_of_asking(self) -> None:
-        gate = PolicyGate(block_destructive=True)
+        gate = build_policy(block_destructive=True)
         assert gate.decide(RiskLevel.DESTRUCTIVE).decision is Decision.DENY

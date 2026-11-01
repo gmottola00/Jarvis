@@ -11,13 +11,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import Request
+from quaerium.agents import AuditLog, PolicyGate, ToolRegistry
 
 from jarvis.agent.models import ModelCatalog
-from jarvis.core.policy import PolicyGate
 from jarvis.notify import Notifier
-from jarvis.observability.audit import AuditLog
 from jarvis.settings import Settings
-from jarvis.tools.registry import ToolRegistry
 
 
 @dataclass
@@ -36,6 +34,11 @@ class Services:
     models: ModelCatalog
     notifier: Notifier
     """notify-hub, or a no-op when notifications are not configured."""
+
+    @property
+    def durable(self) -> bool:
+        """Whether suspended runs survive a restart: only with Postgres."""
+        return bool(self.settings.database_url)
 
 
 def services(request: Request) -> Services:

@@ -21,9 +21,9 @@ import asyncio
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Query
+from quaerium.agents.server import stream
 
 from jarvis.api.fetch import attempt, merge, upstream_http_error
-from jarvis.api.sse import stream
 from jarvis.core.console import (
     ClusterSnapshot,
     EventRecord,

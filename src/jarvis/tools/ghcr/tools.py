@@ -4,18 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.core.types import RiskLevel
-from jarvis.tools.base import ToolSpec, tool
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
+from jarvis.settings import Settings, get_settings
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 from jarvis.tools.ghcr.client import GHCRClient
 from jarvis.tools.ghcr.fake import FakeGHCRClient
 from jarvis.tools.github import provider as github_provider
-from jarvis.tools.provider import ClientProvider
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="ghcr",
+    settings=get_settings,
     real=lambda s: GHCRClient(s),
     fake=FakeGHCRClient,
+    use_fake=use_fake,
     requires=lambda s: [] if s.github_token else ["JARVIS_GITHUB_TOKEN"],
+    hint=FAKE_HINT,
 )
 
 

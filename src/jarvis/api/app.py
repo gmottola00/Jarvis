@@ -18,24 +18,40 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from quaerium.agents import (
+    AgentRunner,
+    AnthropicLLM,
+    build_audit_log,
+    build_graph,
+    build_session_store,
+    checkpointer,
+    configure_logging,
+    get_logger,
+)
+from quaerium.agents.server import make_approvals_router, make_runs_router
 
 from jarvis import gateway as gateway_usage
-from jarvis.agent.checkpointer import checkpointer
-from jarvis.agent.graph import build_graph
-from jarvis.agent.llm import AnthropicLLM
 from jarvis.agent.models import ModelCatalog
-from jarvis.agent.runner import JarvisRunner
-from jarvis.api.deps import Services
-from jarvis.api.routers import alerts, approvals, chat, console, delivery, gateway, health, push, runs, status
-from jarvis.core.policy import PolicyGate
-from jarvis.logging import configure_logging, get_logger
-from jarvis.memory.session import build_session_store
+from jarvis.agent.nodes.router import classify
+from jarvis.agent.policy import build_policy
+from jarvis.agent.prompts import ROUTER_SYSTEM, build_system
+from jarvis.api.deps import Services, services
+from jarvis.api.routers import alerts, chat, console, delivery, gateway, health, push, status
 from jarvis.notify import Notifier, build_notifier
-from jarvis.observability.audit import build_audit_log
 from jarvis.settings import Settings, get_settings
 from jarvis.tools import build_registry, close_capabilities
 
 logger = get_logger(__name__)
+
+APP_NAME = "jarvis"
+"""Namespace of Jarvis's data in the shared stores: Redis keys, audit tables."""
+
+LEGACY_TYPES_MODULE = "jarvis.core.types"
+"""Where the agent types lived before the kernel moved to Quaerium. Checkpoints
+written before that still name it; see :func:`quaerium.agents.checkpointer.build_serde`."""
+
+EFFORT_FOR_ROUTE = {"chitchat": "low", "question": "medium"}
+"""Reading the lab is cheaper than changing it: only actions get the full effort."""
 
 
 @asynccontextmanager
@@ -50,20 +66,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(level=settings.log_level, json_output=settings.log_json)
 
     registry = build_registry()
-    policy = PolicyGate()
-    sessions = build_session_store(settings)
-    audit, pool = await build_audit_log(settings)
+    policy = build_policy()
+    sessions = build_session_store(settings.redis_url, prefix=APP_NAME, ttl=settings.session_ttl_seconds)
+    audit, pool = await build_audit_log(settings.database_url, table_prefix=APP_NAME)
     notifier: Notifier = getattr(app.state, "notifier_override", None) or build_notifier(settings)
 
     async with AsyncExitStack() as stack:
-        saver = await stack.enter_async_context(checkpointer(settings))
+        saver = await stack.enter_async_context(
+            checkpointer(settings.database_url, legacy_modules=[LEGACY_TYPES_MODULE])
+        )
         models = ModelCatalog(settings)
         stack.push_async_callback(models.aclose)
 
         llm: Any = getattr(app.state, "llm_override", None)
         if llm is None:
-            if settings.has_anthropic:
-                llm = AnthropicLLM(settings, risk_of=registry.risk_of)
+            if settings.has_anthropic and settings.anthropic_api_key is not None:
+                llm = AnthropicLLM(
+                    api_key=settings.anthropic_api_key.get_secret_value(),
+                    model=settings.model,
+                    max_tokens=settings.max_tokens,
+                    gateway_url=settings.llm_gateway_url,
+                    risk_of=registry.risk_of,
+                )
             else:
                 logger.warning("llm.unavailable", reason="ANTHROPIC_API_KEY is not set")
 
@@ -72,15 +96,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             graph = build_graph(
                 llm=llm,
                 registry=registry,
+                system=build_system(),
+                classify=classify,
+                router_llm=None,
+                router_system=ROUTER_SYSTEM,
+                effort=settings.effort,
+                effort_for_route=EFFORT_FOR_ROUTE,
+                max_steps=settings.max_graph_steps,
                 policy=policy,
                 checkpointer=saver,
-                router_llm=None,
-                effort=settings.effort,
-                max_steps=settings.max_graph_steps,
-                on_result=lambda call, result: audit.record_tool_call(_current_run(), call, result),
-                on_approval=lambda approval: audit.record_approval(approval.run_id, approval),
+                **audit.hooks(),
             )
-            runner = JarvisRunner(graph=graph, sessions=sessions, audit=audit, notifier=notifier)
+            runner = AgentRunner(graph=graph, sessions=sessions, audit=audit)
 
         app.state.services = Services(
             settings=settings,
@@ -100,7 +127,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             model=settings.model,
             gateway=bool(settings.llm_gateway_url),
             fake_tools=settings.fake_tools,
-            durable=bool(settings.database_url),
+            durable=app.state.services.durable,
             notify=notifier.available,
         )
         yield
@@ -112,13 +139,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if pool is not None:
         await pool.close()
     logger.info("jarvis.stopped")
-
-
-def _current_run() -> str:
-    """Read the run id bound to the current async context by the runner."""
-    import structlog
-
-    return str(structlog.contextvars.get_contextvars().get("run_id", ""))
 
 
 def create_app(*, llm: Any = None, notifier: Notifier | None = None) -> FastAPI:
@@ -143,7 +163,12 @@ def create_app(*, llm: Any = None, notifier: Notifier | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     # The console routers come before the SPA mount, which claims everything else.
-    for module in (health, chat, approvals, status, runs, console, delivery, alerts, gateway, push):
+    app.include_router(health.router)
+    app.include_router(chat.router)
+    app.include_router(make_approvals_router(services))
+    app.include_router(status.router)
+    app.include_router(make_runs_router(services))
+    for module in (console, delivery, alerts, gateway, push):
         app.include_router(module.router)
 
     _mount_spa(app)

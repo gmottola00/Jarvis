@@ -3,6 +3,10 @@
 Fakes are written by hand as real classes satisfying the protocols, rather than
 ``unittest.mock`` objects — the Quaerium convention, and it keeps the tests
 readable as specifications of what each seam is supposed to do.
+
+The agent loop itself (graph, gate, runner, tool schemas) is Quaerium's and is
+tested there; these tests cover what is Jarvis's: the capabilities, the routing
+vocabulary, the policy texts, the model catalog and the application wired together.
 """
 
 from __future__ import annotations
@@ -20,14 +24,13 @@ os.environ.setdefault("JARVIS_OLLAMA_URL", "")
 # Same for notify-hub: no test may push to a real phone.
 os.environ["JARVIS_NOTIFY_URL"] = ""
 
+from quaerium.agents import PolicyGate, ToolRegistry  # noqa: E402
+from quaerium.agents.testing import ScriptedLLM  # noqa: E402
+
 from jarvis import gateway  # noqa: E402
-from jarvis.agent.llm import ScriptedLLM  # noqa: E402
-from jarvis.core.policy import PolicyGate  # noqa: E402
-from jarvis.core.types import RiskLevel  # noqa: E402
+from jarvis.agent.policy import build_policy  # noqa: E402
 from jarvis.settings import get_settings  # noqa: E402
 from jarvis.tools import build_registry, reset_capabilities  # noqa: E402
-from jarvis.tools.base import tool  # noqa: E402
-from jarvis.tools.registry import ToolRegistry  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -48,38 +51,9 @@ def registry() -> ToolRegistry:
 
 
 @pytest.fixture
-def toy_registry() -> ToolRegistry:
-    """A three-tool registry, one per risk level."""
-
-    @tool(namespace="toy", risk=RiskLevel.READ)
-    async def peek(what: str = "nothing") -> str:
-        """Look at something."""
-        return f"saw {what}"
-
-    @tool(namespace="toy", risk=RiskLevel.WRITE)
-    async def draft(text: str) -> str:
-        """Write a draft."""
-        return f"drafted {text}"
-
-    @tool(namespace="toy", risk=RiskLevel.DESTRUCTIVE)
-    async def demolish(target: str) -> str:
-        """Tear something down."""
-        return f"demolished {target}"
-
-    @tool(namespace="toy", risk=RiskLevel.READ)
-    async def explode() -> str:
-        """Always fails."""
-        raise RuntimeError("boom")
-
-    built = ToolRegistry()
-    built.register_many([peek, draft, demolish, explode])
-    return built
-
-
-@pytest.fixture
 def policy() -> PolicyGate:
     """The configured policy: read=auto, write=PR, destructive=confirm."""
-    return PolicyGate()
+    return build_policy()
 
 
 @pytest.fixture

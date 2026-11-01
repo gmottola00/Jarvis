@@ -18,9 +18,9 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from quaerium.agents.llm import is_native
 
 from jarvis import gateway
-from jarvis.agent.llm import is_native
 from jarvis.agent.playbooks import investigate_alert, investigate_argo_app, investigate_pod
 from jarvis.api.deps import Services, services
 from jarvis.api.fetch import attempt, upstream_http_error

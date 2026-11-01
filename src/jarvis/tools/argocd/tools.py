@@ -4,21 +4,25 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from jarvis.core.types import RiskLevel
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
+from jarvis.settings import Settings, get_settings
 from jarvis.tools.argocd.client import ArgoCDClient
 from jarvis.tools.argocd.fake import FakeArgoCDClient
-from jarvis.tools.base import ToolSpec, tool
-from jarvis.tools.provider import ClientProvider
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="argocd",
+    settings=get_settings,
     real=lambda s: ArgoCDClient(s),
     fake=FakeArgoCDClient,
+    use_fake=use_fake,
     requires=lambda s: [
         name
         for name, value in (("JARVIS_ARGOCD_BASE_URL", s.argocd_base_url), ("JARVIS_ARGOCD_TOKEN", s.argocd_token))
         if not value
     ],
+    hint=FAKE_HINT,
 )
 
 

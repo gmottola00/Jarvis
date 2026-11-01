@@ -56,6 +56,12 @@ make up           # dashboard on :8080
 
 ## How it works
 
+The agent loop is [`quaerium.agents`](https://github.com/gmottola00/quaerium)
+(Quaerium ≥ 0.4), the same kernel [Alfred](../Alfred) runs on. Jarvis brings the
+capabilities, the prompts, the router's vocabulary, the policy texts, the model
+catalog and the gateway. To work on both at once: `make quaerium-dev`, then
+`UV_NO_SYNC=1 make check`.
+
 ```
 router ──▶ model ──▶ gate ──▶ act ──┐
              ▲                       │
@@ -67,8 +73,8 @@ router ──▶ model ──▶ gate ──▶ act ──┐
 - **router** — small talk gets no tools and low effort; everything else gets the
   full surface.
 - **model** — Claude Opus 5 with adaptive thinking, streamed. The Anthropic SDK
-  is confined to `agent/llm.py`; everything else talks to a protocol, which is
-  how the whole graph is tested without an API key.
+  is confined to the kernel's `AnthropicLLM`; everything else talks to a
+  protocol, which is how the whole graph is tested without an API key.
 - **gate** — the one place a human is asked. Reads and writes pass; destructive
   calls suspend the run via LangGraph's `interrupt`, checkpointed to Postgres.
 - **act** — cleared calls run concurrently and every result comes back in a
@@ -142,16 +148,16 @@ a standalone MCP server an adapter rather than a rewrite.
 ```
 src/jarvis/
 ├── settings.py        pydantic-settings; every credential lives here
-├── core/              protocols, value types, the policy gate — no I/O
+├── exceptions.py      JarvisError, below the kernel's AgentError
+├── core/              dashboard value types, the console's log logic, kustomize edits — no I/O
 ├── tools/             one folder per capability
-├── agent/             LangGraph: state, nodes, graph, runner, the model boundary
-├── memory/            session history (Redis, or in-process)
-├── observability/     run events and the audit log
-├── notify/            notify-hub client: notify() never raises
-└── api/               FastAPI: SSE chat, approvals, lab overview, runs, push
+├── gateway/           LiteLLM spend, failures and latency for the gateway view
+├── notify/            notify-hub client: notify() never raises, and the approval push
+├── agent/             prompts, router vocabulary, policy texts, model catalog, playbooks
+└── api/               FastAPI: lifespan, SSE chat, lab overview push (approvals and runs from quaerium)
 
 web/src/
-├── lib/               types mirroring core/types.py, the SSE parser, REST calls
+├── lib/               types mirroring quaerium.agents.types and core/types.py, the SSE parser, REST calls
 ├── components/        chat, approval dialog, lab panel, run timeline
 └── pages/Dashboard.tsx
 ```

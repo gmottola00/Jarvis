@@ -4,18 +4,22 @@ from __future__ import annotations
 
 from typing import Any
 
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
 from jarvis.core.console import AlertView
-from jarvis.core.types import RiskLevel
+from jarvis.settings import Settings, get_settings
 from jarvis.tools.alertmanager.client import AlertmanagerClient
 from jarvis.tools.alertmanager.fake import FakeAlertmanagerClient
-from jarvis.tools.base import ToolSpec, tool
-from jarvis.tools.provider import ClientProvider
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="alertmanager",
+    settings=get_settings,
     real=lambda s: AlertmanagerClient(s),
     fake=FakeAlertmanagerClient,
+    use_fake=use_fake,
     requires=lambda s: [] if s.alertmanager_url else ["JARVIS_ALERTMANAGER_URL"],
+    hint=FAKE_HINT,
 )
 
 

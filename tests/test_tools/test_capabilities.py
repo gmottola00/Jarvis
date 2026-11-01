@@ -83,7 +83,7 @@ class TestSetReplicas:
         ],
     )
     async def test_refusals_are_error_results(self, registry, args, expected) -> None:
-        from jarvis.core.types import ToolCall
+        from quaerium.agents import ToolCall
 
         result = await registry.invoke(ToolCall(id="x", name="github__set_replicas", args=args))
         assert not result.ok
@@ -99,7 +99,7 @@ class TestGHCR:
         assert "skipped 1 newer" in out
 
     async def test_missing_package_is_an_error_result_not_a_crash(self, registry) -> None:
-        from jarvis.core.types import ToolCall
+        from quaerium.agents import ToolCall
 
         result = await registry.invoke(ToolCall(id="x", name="ghcr__list_tags", args={"image": "nope"}))
         assert not result.ok
@@ -118,7 +118,7 @@ class TestPrometheus:
         assert "trip-ai-backend" not in out
 
     async def test_a_name_cannot_break_out_of_the_matcher(self, registry) -> None:
-        from jarvis.core.types import ToolCall
+        from quaerium.agents import ToolCall
 
         result = await registry.invoke(
             ToolCall(id="x", name="prometheus__pod_resources", args={"namespace": 'tickup"} or vector(1) #'})
