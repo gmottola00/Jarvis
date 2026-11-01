@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     """Redis URL for session turns. Unset means an in-process dict."""
 
+    litellm_db_url: SecretStr | None = None
+    """DSN of LiteLLM's Postgres as ``jarvis_reader``, for the gateway view.
+
+    That role can only call the ``jarvis_ro.*`` functions (aggregates, no prompts,
+    no keys); see ``apps/litellm/jarvis-reader.sql`` in Home-Lab-Infra. Unset
+    hides the gateway panels.
+    """
+
     session_ttl_seconds: int = 86_400
 
     # --- Capabilities: GitHub ------------------------------------------------

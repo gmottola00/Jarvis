@@ -478,3 +478,57 @@ class TestStatus:
         response = await client.get("/api/status/brief", params={"kind": "alert", "name": "59917779b926e5e6"})
         assert response.status_code == 503
         assert "JARVIS_ALERTMANAGER_URL" in response.json()["detail"]
+
+
+class TestGateway:
+    @pytest.mark.script([])
+    async def test_keys_models_and_errors(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/gateway?hours=24")).json()
+        assert body["window_hours"] == 24 and body["sources"] == {}
+        keys = {k["alias"]: k for k in body["keys"]}
+        assert keys["alfred"]["budget_used"] == pytest.approx(0.86)
+        assert keys["jarvis"]["requests"] == 38 and keys["jarvis"]["failures"] == 7
+        assert body["keys"][0]["alias"] == "alfred"  # closest to its budget first
+        models = {m["model"]: m for m in body["models"]}
+        assert models["claude-opus-5"]["p95_ms"] == 11_800
+        assert models["local/qwen3-14b"]["failures"] == 6
+        assert all("Traceback" not in e["message"] for e in body["errors"])
+        assert len(body["daily"]) == 14
+
+    @pytest.mark.script([])
+    async def test_unconfigured_is_a_note_not_an_error(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis import gateway
+        from jarvis.exceptions import ConfigurationError
+
+        def unconfigured() -> None:
+            raise ConfigurationError("litellm is not configured: set JARVIS_LITELLM_DB_URL")
+
+        monkeypatch.setattr(gateway.provider, "get", unconfigured)
+        response = await client.get("/api/gateway")
+        assert response.status_code == 200
+        assert "JARVIS_LITELLM_DB_URL" in response.json()["sources"]["litellm"]
+        status = (await client.get("/api/status")).json()
+        assert "litellm" not in status["errors"]
+        assert not any(p["id"].startswith("gateway:") for p in status["problems"])
+
+    @pytest.mark.script([])
+    async def test_a_broken_function_costs_one_panel(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.gateway.fake import FakeGatewayUsageClient
+
+        async def broken(self: Any, since: Any, limit: int = 20) -> list[Any]:
+            raise RuntimeError('column "metadata" does not exist')
+
+        monkeypatch.setattr(FakeGatewayUsageClient, "recent_errors", broken)
+        body = (await client.get("/api/gateway")).json()
+        assert "litellm.recent_errors" in body["sources"]
+        assert body["errors"] == [] and body["keys"]
+
+    @pytest.mark.script([])
+    async def test_status_flags_budget_and_failing_model(self, client: httpx.AsyncClient) -> None:
+        problems = {p["id"]: p for p in (await client.get("/api/status")).json()["problems"]}
+        budget = problems["gateway:budget:alfred"]
+        assert budget["severity"] == "warn" and "86%" in budget["title"] and "$10" in budget["title"]
+        assert "gateway:budget:jarvis" not in problems
+        failing = problems["gateway:failures:local/qwen3-14b"]
+        assert "6/7" in failing["title"]
+        assert "gateway:failures:claude-opus-5" not in problems  # 1/31 is noise

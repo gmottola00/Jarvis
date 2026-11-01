@@ -18,6 +18,7 @@ os.environ.setdefault("JARVIS_FAKE_TOOLS", "true")
 os.environ.setdefault("JARVIS_LLM_GATEWAY_URL", "")
 os.environ.setdefault("JARVIS_OLLAMA_URL", "")
 
+from jarvis import gateway  # noqa: E402
 from jarvis.agent.llm import ScriptedLLM  # noqa: E402
 from jarvis.core.policy import PolicyGate  # noqa: E402
 from jarvis.core.types import RiskLevel  # noqa: E402
@@ -31,9 +32,11 @@ from jarvis.tools.registry import ToolRegistry  # noqa: E402
 def _clean_capabilities() -> Any:
     """Drop cached capability clients between tests."""
     reset_capabilities()
+    gateway.provider.reset()
     get_settings.cache_clear()
     yield
     reset_capabilities()
+    gateway.provider.reset()
 
 
 @pytest.fixture
