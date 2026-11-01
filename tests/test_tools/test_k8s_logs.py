@@ -47,3 +47,17 @@ async def test_chunks_are_recut_on_newlines() -> None:
     caffe = "caffè".encode()
     stream = _chunks(b"one\ntw", b"o\nthree\n\nfo", caffe[:4], caffe[4:] + b"\r\n", b"tail")
     assert [line async for line in split_lines(stream)] == ["one", "two", "three", "focaffè", "tail"]
+
+
+@pytest.mark.parametrize(
+    ("pod", "workload"),
+    [
+        ("tickup-web-8c9d7f6b5-zx8vn", "tickup-web"),
+        ("argocd-application-controller-0", "argocd-application-controller"),
+        ("standalone", "standalone"),
+    ],
+)
+def test_workload_guess_from_pod_name(pod: str, workload: str) -> None:
+    from jarvis.api.routers.status import _workload_of
+
+    assert _workload_of(pod) == workload

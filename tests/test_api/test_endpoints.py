@@ -419,3 +419,60 @@ class TestConsoleLogs:
     @pytest.mark.script([])
     async def test_unknown_workload_is_404(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/k8s/workloads/tickup/nope/logs/stream")).status_code == 404
+
+
+class TestStatus:
+    @pytest.mark.script([])
+    async def test_problems_from_every_source_worst_first(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        kinds = {p["kind"] for p in body["problems"]}
+        assert {"pod", "argo", "alert", "event"} <= kinds
+        severities = [p["severity"] for p in body["problems"]]
+        assert severities == sorted(severities, key=lambda s: s != "bad")
+        assert body["counts"]["unhealthy_pods"] >= 1 and body["counts"]["alerts"] >= 1
+        assert body["errors"] == {}
+
+    @pytest.mark.script([])
+    async def test_a_problem_pod_links_to_its_components_logs(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        pod = next(p for p in body["problems"] if p["kind"] == "pod")
+        assert pod["link"] == "#cluster/apps/tickup/logs/tickup-web"
+
+    @pytest.mark.script([])
+    async def test_events_about_a_problem_pod_are_not_repeated(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        pods = {p["name"] for p in body["problems"] if p["kind"] == "pod"}
+        assert not any(p["name"].removeprefix("Pod/") in pods for p in body["problems"] if p["kind"] == "event")
+
+    @pytest.mark.script([])
+    async def test_a_dead_upstream_costs_only_its_rows(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.tools.argocd.fake import FakeArgoCDClient
+
+        async def down(self: Any) -> list[Any]:
+            raise RuntimeError("argocd is down")
+
+        monkeypatch.setattr(FakeArgoCDClient, "list_apps", down)
+        body = (await client.get("/api/status")).json()
+        assert "argocd.apps" in body["errors"]
+        assert not any(p["kind"] == "argo" for p in body["problems"])
+        assert any(p["kind"] == "pod" for p in body["problems"])
+
+    @pytest.mark.script([])
+    async def test_brief_for_each_kind(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        for problem in body["problems"]:
+            if not problem["investigable"]:
+                continue
+            response = await client.get(
+                "/api/status/brief",
+                params={"kind": problem["kind"], "namespace": problem["namespace"], "name": problem["name"]},
+            )
+            assert response.status_code == 200, problem
+            assert response.json()["prompt"].startswith("Investigate")
+
+    @pytest.mark.script([])
+    async def test_brief_for_a_vanished_pod_is_404(self, client: httpx.AsyncClient) -> None:
+        response = await client.get(
+            "/api/status/brief", params={"kind": "pod", "namespace": "tickup", "name": "gone-123"}
+        )
+        assert response.status_code == 404

@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from datetime import timezone
 
-from jarvis.core.console import AlertView
+from jarvis.core.console import AlertView, EventRecord, PodDetail
+from jarvis.core.types import ArgoAppStatus
 
 _NOISY_LABELS = frozenset({"prometheus", "endpoint", "instance", "job", "service", "uid", "alertname", "severity"})
 
@@ -68,4 +69,61 @@ def investigate_alert(alert: AlertView) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["investigate_alert"]
+def investigate_pod(pod: PodDetail, events: list[EventRecord]) -> str:
+    """The opening message for a pod that is not Running-and-ready.
+
+    Args:
+        pod: The pod as the console describes it.
+        events: Recent events about it, newest first.
+
+    Returns:
+        What state it is in, why the kubelet says so, and what to look at first.
+    """
+    lines = [
+        "Investigate this pod: it is not Running and ready. Find the cause and show the evidence "
+        "(container state, the previous container's log if it restarted, events). If a fix is "
+        "needed, propose it as a pull request; do not open one until I agree.",
+        "",
+        f"Pod: {pod.namespace}/{pod.name}",
+        f"Phase: {pod.phase}, ready {pod.ready or '?'}, {pod.restarts} restarts",
+    ]
+    if pod.owner:
+        lines.append(f"Owner: {pod.owner}")
+    if pod.reason or pod.message:
+        lines.append(f"Status: {' — '.join(p for p in (pod.reason, pod.message) if p)}")
+    for c in pod.init_containers + pod.containers:
+        state = c.state + (f" ({c.reason})" if c.reason else "")
+        last = f", last exit {c.last_exit_code} {c.last_reason}".rstrip() if c.last_exit_code is not None else ""
+        lines.append(f"Container {c.name}: {state}, {c.restarts} restarts{last}")
+    if pod.node:
+        lines.append(f"Node: {pod.node}")
+    for event in events[:5]:
+        lines.append(f"Event: {event.type} {event.reason} ×{event.count}: {event.message}")
+    return "\n".join(lines)
+
+
+def investigate_argo_app(app: ArgoAppStatus) -> str:
+    """The opening message for an ArgoCD app that is not Synced and Healthy.
+
+    Args:
+        app: The application as ArgoCD reports it.
+
+    Returns:
+        Its state and where its desired state lives, so the agent can compare Git with the cluster.
+    """
+    lines = [
+        "Investigate this ArgoCD application: it is not Synced and Healthy. Compare what Git "
+        "declares with what runs in the cluster, find which resources differ or are unhealthy "
+        "and why. If a fix is needed, propose it as a pull request; do not open one until I agree.",
+        "",
+        f"Application: {app.name}",
+        f"Sync: {app.sync}, health: {app.health}",
+    ]
+    if app.revision:
+        lines.append(f"Revision: {app.revision}")
+    if app.repo:
+        lines.append(f"Source: {app.repo}" + (f" path {app.path}" if app.path else ""))
+    return "\n".join(lines)
+
+
+__all__ = ["investigate_alert", "investigate_argo_app", "investigate_pod"]

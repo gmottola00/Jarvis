@@ -264,6 +264,50 @@ class LabOverview(BaseModel):
     fetched_at: datetime = Field(default_factory=_now)
 
 
+ProblemKind = Literal["node", "pod", "argo", "alert", "event", "gateway", "approval"]
+
+
+class Problem(BaseModel):
+    """One thing on the status page that wants a look, whatever system it came from."""
+
+    id: str
+    kind: ProblemKind
+    severity: Literal["bad", "warn"]
+    title: str
+    namespace: str = ""
+    name: str = ""
+    """The subject: a pod, an ArgoCD app, an alert fingerprint, a run id."""
+
+    detail: str = ""
+    since: datetime | None = None
+    link: str = ""
+    """The console view that shows it, as a URL hash (``#cluster/apps/tickup/logs``)."""
+
+    investigable: bool = True
+    """Whether ``/api/status/brief`` can turn it into a chat prompt."""
+
+
+class StatusCounts(BaseModel):
+    nodes: int = 0
+    nodes_ready: int = 0
+    unhealthy_pods: int = 0
+    argo_apps: int = 0
+    argo_unhealthy: int = 0
+    alerts: int = 0
+    approvals: int = 0
+    gpu_up: bool | None = None
+    """None when there is no GPU host to probe."""
+
+
+class StatusView(BaseModel):
+    """The answer to "is everything fine?": every problem, worst first."""
+
+    problems: list[Problem] = Field(default_factory=list)
+    counts: StatusCounts = Field(default_factory=StatusCounts)
+    errors: dict[str, str] = Field(default_factory=dict)
+    fetched_at: datetime = Field(default_factory=_now)
+
+
 __all__ = [
     "Approval",
     "ApprovalRequiredEvent",
@@ -272,6 +316,10 @@ __all__ = [
     "DoneEvent",
     "ErrorEvent",
     "LabOverview",
+    "Problem",
+    "ProblemKind",
+    "StatusCounts",
+    "StatusView",
     "NodeStatus",
     "PodStatus",
     "RiskLevel",
