@@ -433,6 +433,7 @@ class ComponentDelivery(BaseModel):
 
 class AppDelivery(BaseModel):
     name: str
+    namespace: str = ""
     sync: str = "Unknown"
     health: str = "Unknown"
     revision: str = ""

@@ -13,7 +13,7 @@ import { BracketTabs, HudPage, HudPanel, LiveStamp, RefreshButton } from "../com
 import { Empty, ErrorNote, LearnCommand, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
 import { consoleApi } from "../lib/console/api";
-import { ingressEntries } from "../lib/console/apps";
+import { appNamespace, namespaceEntry } from "../lib/console/apps";
 import { podHealthy } from "../lib/console/derive";
 import { kubectl } from "../lib/console/kubectl";
 import type { AppDelivery } from "../lib/console/types";
@@ -43,8 +43,9 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
   const network = usePolling(() => consoleApi.network(name), DELIVERY_MS, name);
   const delivery = usePolling(consoleApi.delivery, DELIVERY_MS);
 
-  const app = delivery.data?.apps.find((a) => a.name === name);
-  const entry = network.data ? ingressEntries(network.data, app ? [app] : [])[0] : undefined;
+  const apps = delivery.data?.apps ?? [];
+  const app = apps.find((a) => a.name === name) ?? apps.find((a) => appNamespace(a) === name);
+  const entry = network.data ? namespaceEntry(name, network.data, apps) : undefined;
   const allWorkloads = workloads.data ?? [];
   const allPods = pods.data ?? [];
   const unhealthy = allPods.filter((p) => !podHealthy(p)).length;

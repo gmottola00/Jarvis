@@ -208,6 +208,7 @@ async def overview(
         tracking, note, file_result = await _read_pins(app.name, app.path, errors, svc)
         return AppDelivery(
             name=app.name,
+            namespace=app.namespace,
             sync=app.sync,
             health=app.health,
             revision=app.revision,

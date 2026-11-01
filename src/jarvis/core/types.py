@@ -244,6 +244,8 @@ class ArgoAppStatus(BaseModel):
     revision: str = ""
     repo: str = ""
     path: str = ""
+    namespace: str = ""
+    """Where the app's workloads live: the destination namespace, else the one most of its resources are in."""
 
 
 ProblemKind = Literal["node", "pod", "argo", "alert", "event", "gateway", "approval"]
