@@ -1,4 +1,5 @@
 import {
+  Bell,
   GraduationCap,
   HeartPulse,
   Menu,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useLearnMode } from "../../lib/hooks/useLearnMode";
+import { PushSheet } from "../push/PushSheet";
 import { UltronCore } from "./UltronCore";
 
 export interface NavItem<T extends string> {
@@ -66,6 +68,7 @@ export function Sidebar<T extends string>({
 }) {
   const [collapsed, setCollapsed] = useState(storedCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   const learn = useLearnMode();
 
   function toggleCollapsed() {
@@ -165,6 +168,20 @@ export function Sidebar<T extends string>({
         </button>
         <button
           type="button"
+          onClick={() => {
+            setPushOpen(true);
+            setMobileOpen(false);
+          }}
+          title="Notifications on this device"
+          className={`flex w-full items-center gap-3 rounded-md py-2 text-ink-600 hover:text-ink-300 ${
+            narrow ? "justify-center" : "px-2.5"
+          }`}
+        >
+          <Bell className="size-4 shrink-0" />
+          {!narrow && <span className="font-mono text-[11px]">notifications</span>}
+        </button>
+        <button
+          type="button"
           onClick={learn.toggle}
           aria-pressed={learn.on}
           title="Show the explanation next to each panel"
@@ -193,12 +210,21 @@ export function Sidebar<T extends string>({
   return (
     <>
       {/* Phone: a top bar with the menu button; the rail slides over the page. */}
-      <div className="flex items-center gap-3 border-b border-ink-850 bg-ink-950 px-4 py-2 md:hidden">
+      {/* Installed on an iPhone the page runs under the status bar: pad past it. */}
+      <div className="flex items-center gap-3 border-b border-ink-850 bg-ink-950 px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 md:hidden">
         <button type="button" aria-label="Open menu" onClick={() => setMobileOpen(true)} className="text-ink-400">
           <Menu className="size-5" />
         </button>
         <UltronCore size={20} />
         <span className="glow-red font-display text-base font-bold tracking-[0.3em] text-ultron-400">ULTRON</span>
+        <button
+          type="button"
+          aria-label="Notifications"
+          onClick={() => setPushOpen(true)}
+          className="ml-auto text-ink-400"
+        >
+          <Bell className="size-5" />
+        </button>
       </div>
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -208,12 +234,12 @@ export function Sidebar<T extends string>({
             className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative h-full w-64 border-r border-ultron-900 bg-ink-950">
+          <aside className="relative h-full w-64 border-r border-ultron-900 bg-ink-950 pt-[env(safe-area-inset-top)]">
             <button
               type="button"
               aria-label="Close menu"
               onClick={() => setMobileOpen(false)}
-              className="absolute top-4 right-3 text-ink-600"
+              className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-3 text-ink-600"
             >
               <X className="size-4" />
             </button>
@@ -230,6 +256,8 @@ export function Sidebar<T extends string>({
       >
         {rail(collapsed)}
       </aside>
+
+      <PushSheet open={pushOpen} onClose={() => setPushOpen(false)} />
     </>
   );
 }

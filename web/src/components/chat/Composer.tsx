@@ -45,7 +45,7 @@ export function Composer({
   }
 
   return (
-    <div className="px-4 pt-2 pb-4 sm:px-6">
+    <div className="px-4 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] sm:px-6">
       <div className="mx-auto max-w-4xl">
         <div className="relative border border-ink-800 bg-ink-900/90 backdrop-blur transition-shadow focus-within:border-ultron-600 focus-within:shadow-[0_0_24px_-6px_var(--color-ultron-500)]">
           <span className="absolute -top-px -left-px size-2.5 border-t-2 border-l-2 border-ultron-500" aria-hidden />

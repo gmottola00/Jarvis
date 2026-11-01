@@ -57,6 +57,8 @@ export interface Capabilities {
   llm_ready: boolean;
   fake_tools: boolean;
   durable: boolean;
+  /** Push notifications configured (notify-hub reachable by URL and token). */
+  notify: boolean;
   policy: { read: string; write: string; destructive: string };
   capabilities: Record<string, ToolInfo[]>;
   /** Where each capability's answers come from. Keyed by namespace. */

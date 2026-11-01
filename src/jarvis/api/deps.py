@@ -14,6 +14,7 @@ from fastapi import Request
 
 from jarvis.agent.models import ModelCatalog
 from jarvis.core.policy import PolicyGate
+from jarvis.notify import Notifier
 from jarvis.observability.audit import AuditLog
 from jarvis.settings import Settings
 from jarvis.tools.registry import ToolRegistry
@@ -33,6 +34,8 @@ class Services:
     """False when no API key is configured: the dashboard works, chat explains why."""
 
     models: ModelCatalog
+    notifier: Notifier
+    """notify-hub, or a no-op when notifications are not configured."""
 
 
 def services(request: Request) -> Services:

@@ -26,10 +26,11 @@ from jarvis.agent.llm import AnthropicLLM
 from jarvis.agent.models import ModelCatalog
 from jarvis.agent.runner import JarvisRunner
 from jarvis.api.deps import Services
-from jarvis.api.routers import alerts, approvals, chat, console, delivery, gateway, health, runs, status
+from jarvis.api.routers import alerts, approvals, chat, console, delivery, gateway, health, push, runs, status
 from jarvis.core.policy import PolicyGate
 from jarvis.logging import configure_logging, get_logger
 from jarvis.memory.session import build_session_store
+from jarvis.notify import Notifier, build_notifier
 from jarvis.observability.audit import build_audit_log
 from jarvis.settings import Settings, get_settings
 from jarvis.tools import build_registry, close_capabilities
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     policy = PolicyGate()
     sessions = build_session_store(settings)
     audit, pool = await build_audit_log(settings)
+    notifier: Notifier = getattr(app.state, "notifier_override", None) or build_notifier(settings)
 
     async with AsyncExitStack() as stack:
         saver = await stack.enter_async_context(checkpointer(settings))
@@ -78,7 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 on_result=lambda call, result: audit.record_tool_call(_current_run(), call, result),
                 on_approval=lambda approval: audit.record_approval(approval.run_id, approval),
             )
-            runner = JarvisRunner(graph=graph, sessions=sessions, audit=audit)
+            runner = JarvisRunner(graph=graph, sessions=sessions, audit=audit, notifier=notifier)
 
         app.state.services = Services(
             settings=settings,
@@ -89,6 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             audit=audit,
             llm_ready=llm is not None,
             models=models,
+            notifier=notifier,
         )
 
         logger.info(
@@ -98,11 +101,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             gateway=bool(settings.llm_gateway_url),
             fake_tools=settings.fake_tools,
             durable=bool(settings.database_url),
+            notify=notifier.available,
         )
         yield
 
     await close_capabilities()
     await gateway_usage.provider.aclose()
+    await notifier.aclose()
     await sessions.aclose()
     if pool is not None:
         await pool.close()
@@ -116,11 +121,12 @@ def _current_run() -> str:
     return str(structlog.contextvars.get_contextvars().get("run_id", ""))
 
 
-def create_app(*, llm: Any = None) -> FastAPI:
+def create_app(*, llm: Any = None, notifier: Notifier | None = None) -> FastAPI:
     """Build the ASGI application.
 
     Args:
         llm: Replace the model. Used by tests; never set in production.
+        notifier: Replace the notify-hub client. Used by tests; never set in production.
     """
     settings = get_settings()
     app = FastAPI(
@@ -137,11 +143,12 @@ def create_app(*, llm: Any = None) -> FastAPI:
         allow_headers=["*"],
     )
     # The console routers come before the SPA mount, which claims everything else.
-    for module in (health, chat, approvals, status, runs, console, delivery, alerts, gateway):
+    for module in (health, chat, approvals, status, runs, console, delivery, alerts, gateway, push):
         app.include_router(module.router)
 
     _mount_spa(app)
     app.state.llm_override = llm
+    app.state.notifier_override = notifier
     return app
 
 
@@ -157,6 +164,7 @@ def _mount_spa(app: FastAPI) -> None:
         return
 
     app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+    root = dist.resolve()
 
     @app.get("/", include_in_schema=False)
     @app.get("/{path:path}", include_in_schema=False)
@@ -169,6 +177,12 @@ def _mount_spa(app: FastAPI) -> None:
         """
         if path.startswith("api/") or path == "api":
             raise HTTPException(status_code=404, detail=f"no such endpoint: /{path}")
+        # Files at the root of dist (sw.js, the manifest, icons, splash screens)
+        # are served as themselves; resolve() keeps ../ from leaving dist.
+        if path:
+            file = (dist / path).resolve()
+            if file.is_file() and file.is_relative_to(root):
+                return FileResponse(file)
         return FileResponse(dist / "index.html")
 
     logger.info("spa.mounted", path=str(dist))

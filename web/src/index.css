@@ -243,3 +243,28 @@ body {
 .hljs-deletion {
   color: var(--color-ultron-400);
 }
+
+/* --- Home screen ----------------------------------------------------------- */
+
+/* Installed on the home screen it should feel like an app, not a web page:
+ * no rubber-band bounce past the edges, no long-press callout on links. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+  a,
+  button {
+    -webkit-touch-callout: none;
+  }
+}
+
+/* iOS zooms into any field under 16px when it gets focus. Unlayered, so it
+ * wins over Tailwind's text-sm on touch screens only. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

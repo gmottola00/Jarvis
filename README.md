@@ -147,7 +147,8 @@ src/jarvis/
 ├── agent/             LangGraph: state, nodes, graph, runner, the model boundary
 ├── memory/            session history (Redis, or in-process)
 ├── observability/     run events and the audit log
-└── api/               FastAPI: SSE chat, approvals, lab overview, runs
+├── notify/            notify-hub client: notify() never raises
+└── api/               FastAPI: SSE chat, approvals, lab overview, runs, push
 
 web/src/
 ├── lib/               types mirroring core/types.py, the SSE parser, REST calls
@@ -174,6 +175,7 @@ Jarvis starts degraded rather than refusing to boot:
 | `JARVIS_PROMETHEUS_URL` | `prometheus__*` tools return an error naming the variable; the rest of the agent is unaffected |
 | `JARVIS_LOKI_URL` | `loki__*` tools likewise; `k8s__get_logs` still reads live containers |
 | `JARVIS_ALERTMANAGER_URL` | the alerts page shows an error card; the dashboard's alert count is simply left out |
+| `JARVIS_NOTIFY_URL`, `NOTIFY_TOKEN` | push notifications off; the bell says why |
 | `JARVIS_LITELLM_DB_URL` | Settings shows only Jarvis's own budget; no per-app spend, failures or latency, no gateway problems in Status |
 
 ### Models and the LLM gateway
@@ -193,6 +195,24 @@ While the desktop is off, `local/*` show as offline and a message sent to one
 is answered by `JARVIS_LOCAL_FALLBACK_MODEL` without waiting on a timeout. The
 answering model is shown under each reply. In the cluster the proxy is
 `apps/litellm` in Home-Lab-Infra; locally, `docker compose --profile gateway up`.
+
+### On the phone and notifications
+
+Added to the iPhone Home Screen (Share → Add to Home Screen) Jarvis opens as
+**Ultron**, full screen, with its own icon and launch screen. `web/public/sw.js`
+keeps the shell so it never opens blank, and never touches `/api`. Icons and
+launch screens are rendered by `npm run pwa-assets` (needs `google-chrome`).
+
+Push goes through [notify-hub](../Notify-Hub), the lab service that holds the
+VAPID key and the subscribed phones; the phone subscribes via Jarvis
+(`/api/push/*`), never to the hub, which is cluster-internal.
+
+- **Bell** in the phone top bar (or "notifications" in the sidebar): turn on, off,
+  send a test. On iPhone it works only from the Home Screen app.
+- **A run waiting for approval** pushes "Approval needed"; the tap opens
+  Jarvis → approvals. In the background: the stream never waits on the hub.
+- **From code:** `await svc.notifier.notify("Title", "Body", url="/#status", tag="...")`.
+  It never raises: a hub that does not answer logs `notify.failed` and returns `None`.
 
 ---
 

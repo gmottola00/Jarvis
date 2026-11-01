@@ -37,7 +37,7 @@ export function Drawer({
       <div
         role="dialog"
         aria-modal="true"
-        className="relative flex h-full w-full max-w-3xl flex-col border-l border-ink-850 bg-ink-950 shadow-2xl"
+        className="relative flex h-full w-full max-w-3xl flex-col border-l border-ink-850 bg-ink-950 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl"
       >
         <header className="flex items-start gap-3 border-b border-ink-850 px-5 py-3">
           <div className="min-w-0 flex-1">

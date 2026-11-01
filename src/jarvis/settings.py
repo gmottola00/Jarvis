@@ -19,7 +19,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_prefix="JARVIS_",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # --- Model ---------------------------------------------------------------
@@ -116,6 +117,16 @@ class Settings(BaseSettings):
 
     alertmanager_url: str | None = None
     """Alertmanager's API, e.g. ``http://kube-prometheus-stack-alertmanager.monitoring:9093``."""
+
+    # --- Notifications -------------------------------------------------------
+    notify_url: str | None = None
+    """notify-hub base URL. Unset means push notifications are off."""
+
+    notify_token: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("JARVIS_NOTIFY_TOKEN", "NOTIFY_TOKEN")
+    )
+    """Jarvis's bearer token for notify-hub. Also read from plain ``NOTIFY_TOKEN``,
+    the key ``make notify-token`` writes into the ``jarvis-notify`` secret."""
 
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8080"]

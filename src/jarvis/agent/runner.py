@@ -14,6 +14,7 @@ A run ends in exactly one of three ways, and the runner is what tells them apart
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, AsyncIterator
 
 from langgraph.types import Command
@@ -39,12 +40,15 @@ class JarvisRunner:
         graph: The compiled graph.
         sessions: Session store, for the history the UI renders.
         audit: Optional audit log.
+        notifier: Optional notify-hub client: a suspended run pushes to the phone.
     """
 
-    def __init__(self, *, graph: Any, sessions: Any = None, audit: Any = None) -> None:
+    def __init__(self, *, graph: Any, sessions: Any = None, audit: Any = None, notifier: Any = None) -> None:
         self._graph = graph
         self._sessions = sessions
         self._audit = audit
+        self._notifier = notifier
+        self._pending: set[asyncio.Task[Any]] = set()
 
     @staticmethod
     def _config(session_id: str) -> dict[str, Any]:
@@ -90,6 +94,7 @@ class JarvisRunner:
             )
             if self._audit is not None:
                 self._audit.suspend_run(run_id, event.tool, event.args, event.why)
+            self._notify_approval(event)
             yield event.model_dump(mode="json")
             return
 
@@ -105,6 +110,27 @@ class JarvisRunner:
 
         logger.info("run.done", output_tokens=usage.output_tokens)
         yield DoneEvent(run_id=run_id, usage=usage, model=served_by, requested_model=requested).model_dump(mode="json")
+
+    def _notify_approval(self, event: ApprovalRequiredEvent) -> None:
+        """Tell the phone a run is waiting. In the background: the stream never waits for the hub.
+
+        ``notify()`` never raises, so the task cannot fail; the set only keeps it
+        alive until it is done.
+        """
+        if self._notifier is None or not self._notifier.available:
+            return
+        body = f"{event.tool}: {event.why}" if event.why else event.tool
+        task = asyncio.create_task(
+            self._notifier.notify(
+                "Approval needed",
+                body,
+                url="/#jarvis/approvals",
+                tag=f"approval:{event.run_id}",
+                urgency="high",
+            )
+        )
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
 
     async def start(
         self, session_id: str, message: str, *, run_id: str | None = None, model: str = "", picked: str = ""
