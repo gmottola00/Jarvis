@@ -59,7 +59,7 @@ export function Sidebar<T extends string>({
   onSelect: (id: T) => void;
   /** A count on an item that needs you: problems on status, waiting approvals on jarvis. */
   badges?: Partial<Record<T, { count: number; tone: "bad" | "warn" }>>;
-  /** The footer entry for models and capabilities. */
+  /** The footer entry for models, the GPU host and the budget. */
   settings: { active: boolean; onSelect: () => void };
   /** Start a conversation from scratch. */
   onNewChat: () => void;
@@ -155,7 +155,7 @@ export function Sidebar<T extends string>({
             setMobileOpen(false);
           }}
           aria-current={settings.active ? "page" : undefined}
-          title="Models and capabilities"
+          title="Models, GPU host and budget"
           className={`flex w-full items-center gap-3 rounded-md py-2 ${narrow ? "justify-center" : "px-2.5"} ${
             settings.active ? "text-ultron-300" : "text-ink-600 hover:text-ink-300"
           }`}

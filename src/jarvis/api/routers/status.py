@@ -220,7 +220,7 @@ async def status(svc: Services = Depends(services)) -> StatusView:
                 title="The GPU host is not answering",
                 name=gpu.url,
                 detail=f"default model {svc.models.default} runs on it",
-                link="#settings/models",
+                link="#settings",
                 investigable=False,
             )
         )

@@ -70,7 +70,7 @@ function Shell() {
           ))}
         {tab === "delivery" && <Delivery />}
         {tab === "jarvis" && <Jarvis tab={section} chatKey={chatKey} />}
-        {tab === "settings" && <Settings tab={section} />}
+        {tab === "settings" && <Settings />}
       </main>
     </div>
   );
