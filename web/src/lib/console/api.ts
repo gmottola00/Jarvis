@@ -6,6 +6,7 @@ import type {
   ClusterSnapshot,
   DeliveryOverview,
   EventRecord,
+  GatewayView,
   ManifestKind,
   NetworkView,
   PodDetail,
@@ -48,6 +49,7 @@ export const consoleApi = {
   delivery: () => get<DeliveryOverview>("/api/delivery/overview"),
 
   status: () => get<StatusView>("/api/status"),
+  gateway: (hours = 24) => get<GatewayView>(`/api/gateway?hours=${hours}`),
   /** The investigation prompt for one status problem — what its "Investigate" button sends. */
   statusBrief: (problem: Pick<Problem, "kind" | "namespace" | "name">) =>
     get<{ prompt: string }>(
