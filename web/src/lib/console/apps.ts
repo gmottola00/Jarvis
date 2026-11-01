@@ -1,11 +1,12 @@
 /**
- * What an "app" is to the console: a namespace with a Tailscale ingress, joined
- * with its ArgoCD app and the images Delivery says it runs. Shared by the apps
- * grid and the per-app page.
+ * What an "app" is to the console: a namespace, joined with its ArgoCD app and
+ * the images Delivery says it runs. Namespaces with a Tailscale ingress get its
+ * address; the rest (a database, a backend only other apps call) are
+ * cluster-only. Shared by the apps grid and the per-app page.
  */
 
 import type { Tone } from "./derive";
-import type { AppDelivery, IngressView, NetworkView } from "./types";
+import type { AppDelivery, IngressView, NetworkView, ServiceView } from "./types";
 import { shortSha, splitImage } from "../format";
 import type { GpuState } from "../types";
 
@@ -17,6 +18,8 @@ export const PLATFORM: Record<string, string> = {
   observability: "metrics",
   grafana: "metrics",
   jarvis: "agent",
+  databases: "database",
+  "cnpg-system": "operator",
 };
 
 export interface Fact {
@@ -46,6 +49,82 @@ export function parseRule(rule: string): [string, string] {
 
 function repoName(url: string): string {
   return url.replace(/^(https?:\/\/github\.com\/|git@github\.com:)/, "").replace(/\.git$/, "");
+}
+
+/** The namespace an ArgoCD app deploys into, falling back to its name. */
+export function appNamespace(app: AppDelivery): string {
+  return app.namespace || app.name;
+}
+
+/** ArgoCD apps whose namespace is `argocd` are app-of-apps, not something that runs. */
+const GITOPS_NAMESPACE = "argocd";
+
+/**
+ * Every app worth a card: one per Tailscale ingress, then one per namespace that
+ * ArgoCD deploys into but no Tailscale ingress exposes.
+ */
+export function clusterEntries(network: NetworkView, delivery: AppDelivery[]): Entry[] {
+  const exposed = ingressEntries(network, delivery);
+  const covered = new Set(exposed.map((e) => e.name));
+  const internal = new Map<string, AppDelivery[]>();
+  for (const app of delivery) {
+    const ns = appNamespace(app);
+    if (ns === GITOPS_NAMESPACE || covered.has(ns)) continue;
+    internal.set(ns, [...(internal.get(ns) ?? []), app]);
+  }
+  return [...exposed, ...[...internal].map(([ns, apps]) => internalEntry(ns, network, apps))];
+}
+
+/** The card for one namespace, exposed or not; undefined when neither an ingress nor an app knows it. */
+export function namespaceEntry(namespace: string, network: NetworkView, delivery: AppDelivery[]): Entry | undefined {
+  const mine = delivery.filter((a) => appNamespace(a) === namespace || a.name === namespace);
+  const exposed = ingressEntries(network, mine).find((e) => e.name === namespace);
+  return exposed ?? (mine.length ? internalEntry(namespace, network, mine) : undefined);
+}
+
+/** `notify-backend.notify.svc:8000`, the address other pods use. */
+function serviceAddress(svc: ServiceView): string {
+  const port = svc.ports[0]?.split("→")[0];
+  return `${svc.name}.${svc.namespace}.svc${port ? `:${port}` : ""}`;
+}
+
+function internalEntry(namespace: string, network: NetworkView, apps: AppDelivery[]): Entry {
+  const services = network.services.filter((s) => s.namespace === namespace && s.cluster_ip && s.cluster_ip !== "None");
+  // With no routes to go by, one empty service is not news: a single-instance
+  // CNPG cluster always has an empty `-ro`. Only all of them empty is.
+  const live = services.filter((s) => s.endpoints.length > 0);
+  const healthy = apps.every((a) => a.sync === "Synced" && a.health === "Healthy");
+  const tone: Tone = services.length && !live.length ? "bad" : !healthy ? "warn" : "ok";
+
+  const argo = apps.map((a) => `${apps.length > 1 ? `${a.name} ` : ""}${a.sync} · ${a.health}`);
+  const status = [...argo, "cluster only"];
+  if (services.length && !live.length) status.push("no service has endpoints");
+  // The address to show: the read-write one when CNPG offers it, else anything that answers.
+  const primary = services.find((s) => s.name.endsWith("-rw") && s.endpoints.length) ?? live[0] ?? services[0];
+
+  const facts: Fact[] = [];
+  if (apps.length > 1 || apps[0].name !== namespace) facts.push({ k: "argocd", v: apps.map((a) => a.name).join(" · ") });
+  const repos = [...new Set(apps.map((a) => a.repo).filter(Boolean))];
+  if (repos.length) facts.push({ k: "repo", v: repos.map(repoName).join(" · ") });
+  const paths = apps.map((a) => a.path).filter(Boolean);
+  if (paths.length) facts.push({ k: "path", v: paths.join(" · ") });
+  for (const c of apps.flatMap((a) => a.components)) {
+    const { name } = splitImage(c.image);
+    const tag = shortSha(c.running_tag || c.git_tag);
+    facts.push({ k: c.component.replace(`${namespace}-`, ""), v: `ghcr · ${name}:${tag}`, tone: c.status === "in-sync" ? undefined : c.status === "unknown" ? "idle" : "warn" });
+  }
+  if (services.length)
+    facts.push({ k: "services", v: services.map((s) => `${s.name}${s.endpoints.length ? "" : " (no endpoints)"}`).join(" · "), dim: true });
+
+  return {
+    name: namespace,
+    kind: PLATFORM[namespace] ?? "app",
+    host: primary ? serviceAddress(primary) : `namespace ${namespace}`,
+    url: "",
+    tone,
+    status: status.join(" · "),
+    facts,
+  };
 }
 
 /** One entry per Tailscale ingress; ArgoCD state and image pins come from the delivery overview. */

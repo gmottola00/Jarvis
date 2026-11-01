@@ -1,6 +1,6 @@
 """Offline stand-in for ArgoCD.
 
-Mirrors ``bootstrap/apps/`` in Home-Lab-Infra: two Applications, both pointed at
+Mirrors ``bootstrap/apps/`` in Home-Lab-Infra: three Applications, each pointed at
 ``apps/<name>`` in the infra repo. ``tickup`` is left degraded to match the broken
 pod in the Kubernetes fixtures, so a question like "why is tickup unhealthy?"
 exercises two capabilities at once.
@@ -16,10 +16,32 @@ _REPO = "git@github.com:gmottola00/Home-Lab-Infra.git"
 
 _APPS = {
     "trip-ai": ArgoAppStatus(
-        name="trip-ai", sync="Synced", health="Healthy", revision="5156b7f3a1c2", repo=_REPO, path="apps/trip-ai"
+        name="trip-ai",
+        sync="Synced",
+        health="Healthy",
+        revision="5156b7f3a1c2",
+        repo=_REPO,
+        path="apps/trip-ai",
+        namespace="trip-ai",
     ),
     "tickup": ArgoAppStatus(
-        name="tickup", sync="Synced", health="Degraded", revision="5156b7f3a1c2", repo=_REPO, path="apps/tickup"
+        name="tickup",
+        sync="Synced",
+        health="Degraded",
+        revision="5156b7f3a1c2",
+        repo=_REPO,
+        path="apps/tickup",
+        namespace="tickup",
+    ),
+    # No Tailscale ingress: only reachable inside the cluster.
+    "postgres-base": ArgoAppStatus(
+        name="postgres-base",
+        sync="Synced",
+        health="Healthy",
+        revision="5156b7f3a1c2",
+        repo=_REPO,
+        path="apps/postgres-base",
+        namespace="databases",
     ),
 }
 

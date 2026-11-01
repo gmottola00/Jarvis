@@ -601,6 +601,15 @@ _EVENTS = [
         minutes=12,
         count=2,
     ),
+    # Left behind by a rollout: the pod it names is already gone.
+    _event(
+        "tickup",
+        "Warning",
+        "Unhealthy",
+        "Pod/tickup-backend-4d6b9c8f7-old01",
+        'Readiness probe failed: Get "http://10.42.0.37:8000/health": connect: connection refused',
+        minutes=20,
+    ),
     _event(
         "tickup",
         "Normal",

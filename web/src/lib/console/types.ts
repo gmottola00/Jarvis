@@ -300,6 +300,8 @@ export type Tracking = "kustomize" | "helm" | "manifests";
 
 export interface AppDelivery {
   name: string;
+  /** Where its workloads live; empty when ArgoCD gave no hint. */
+  namespace: string;
   sync: string;
   health: string;
   revision: string;

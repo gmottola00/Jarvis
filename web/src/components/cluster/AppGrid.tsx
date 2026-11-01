@@ -3,7 +3,7 @@ import { ErrorNote, Loading } from "../ui/primitives";
 import { TONE } from "../ui/tone";
 import { api } from "../../lib/api";
 import { consoleApi } from "../../lib/console/api";
-import { ingressEntries, ollamaEntry, type Entry } from "../../lib/console/apps";
+import { clusterEntries, ollamaEntry, type Entry } from "../../lib/console/apps";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { href } from "../../lib/route";
 
@@ -11,10 +11,11 @@ import { href } from "../../lib/route";
 const POLL_MS = 60_000;
 
 /**
- * Everything with an address on the tailnet, one click away: each Tailscale
- * ingress, joined with its ArgoCD app, what its routes land on and which image
- * each component is running. The GPU desktop's Ollama sits off the cluster and
- * comes from the models probe.
+ * Everything that runs in the lab, one click away: each Tailscale ingress,
+ * joined with its ArgoCD app, what its routes land on and which image each
+ * component is running, then every ArgoCD app with no tailnet address (a
+ * database, an internal service) as a cluster-only card. The GPU desktop's
+ * Ollama sits off the cluster and comes from the models probe.
  */
 export function AppGrid() {
   const network = usePolling(() => consoleApi.network(), POLL_MS);
@@ -29,11 +30,11 @@ export function AppGrid() {
     ),
   );
 
-  const entries = network.data ? ingressEntries(network.data, delivery.data?.apps ?? []) : [];
-  const tailnet = entries.map((e) => e.host.split(".").slice(1).join(".")).find(Boolean);
+  const entries = network.data ? clusterEntries(network.data, delivery.data?.apps ?? []) : [];
+  const tailnet = entries.filter((e) => e.url).map((e) => e.host.split(".").slice(1).join(".")).find(Boolean);
   const gpu = models.data?.gpu;
   const groups = [
-    { title: "apps", note: "argocd · ingressClassName tailscale", items: entries.filter((e) => e.kind === "app") },
+    { title: "apps", note: "argocd · on the tailnet or cluster only", items: entries.filter((e) => e.kind === "app") },
     { title: "platform", note: "what runs the lab", items: entries.filter((e) => e.kind !== "app") },
     { title: "off cluster", note: "on the tailnet, not in k3s", items: gpu ? [ollamaEntry(gpu, models.data?.fallback ?? "")] : [] },
   ].filter((g) => g.items.length);
@@ -42,7 +43,7 @@ export function AppGrid() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <LiveStamp error={Object.keys(errors).length > 0} every={POLL_MS} at={delivery.data?.fetched_at} />
-        <span className="font-mono text-[11px] text-ink-500">argocd apps × tailscale ingresses{tailnet ? ` · ${tailnet}` : ""}</span>
+        <span className="font-mono text-[11px] text-ink-500">argocd apps × tailscale ingresses + cluster-only{tailnet ? ` · ${tailnet}` : ""}</span>
         <button
           type="button"
           onClick={refresh}
@@ -56,7 +57,7 @@ export function AppGrid() {
       <ErrorNote errors={Object.keys(errors).length ? errors : null} />
       {delivery.data && <ErrorNote errors={delivery.data.errors["argocd"] ? { argocd: delivery.data.errors["argocd"] } : null} />}
 
-      {network.data && groups.length === 0 && <p className="text-xs text-ink-500">No ingress has ingressClassName tailscale.</p>}
+      {network.data && groups.length === 0 && <p className="text-xs text-ink-500">No tailscale ingress and no ArgoCD app.</p>}
 
       {groups.map((group) => (
         <section key={group.title} className="space-y-3">

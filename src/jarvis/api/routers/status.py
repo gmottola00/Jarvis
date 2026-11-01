@@ -151,13 +151,21 @@ def _alert_problems(alerts: list[AlertView]) -> list[Problem]:
     ]
 
 
-def _event_problems(events: list[EventRecord], covered: set[str]) -> list[Problem]:
-    """Warning events, one row per object, skipping objects already listed as a problem pod."""
+def _event_problems(events: list[EventRecord], covered: set[str], live_pods: set[str] | None) -> list[Problem]:
+    """Warning events, one row per object.
+
+    Skips objects already listed as a problem pod, and — when the pod list is
+    known — events about pods that no longer exist: a rollout leaves a
+    "readiness probe failed" behind on the pod it just deleted, which is
+    history, not a problem, and cannot be investigated.
+    """
     seen: set[str] = set()
     rows: list[Problem] = []
     for e in events:
         key = f"{e.namespace}/{e.object}"
         if not e.warning or key in seen or key in covered:
+            continue
+        if live_pods is not None and e.object.startswith("Pod/") and key not in live_pods:
             continue
         seen.add(key)
         rows.append(
@@ -268,11 +276,12 @@ async def status(svc: Services = Depends(services)) -> StatusView:
     )
     llm = await llm_task
     nodes, apps, alerts, events = nodes or [], apps or [], alerts or [], events or []
+    live_pods = None if pods is None else {f"{p.namespace}/Pod/{p.name}" for p in pods}
     pods = [p for p in pods or [] if _needs_look(p)]
     pending = svc.audit.pending()
 
     problems = _node_problems(nodes) + _pod_problems(pods) + _argo_problems(apps) + _alert_problems(alerts)
-    problems += _event_problems(events, covered={f"{p.namespace}/Pod/{p.name}" for p in pods})
+    problems += _event_problems(events, covered={f"{p.namespace}/Pod/{p.name}" for p in pods}, live_pods=live_pods)
     # The GPU desktop is often off on purpose; that only matters when chat depends on it.
     if gpu is not None and not gpu.up and not is_native(svc.models.default):
         problems.append(

@@ -434,6 +434,11 @@ class TestStatus:
         assert not any(p["name"].removeprefix("Pod/") in pods for p in body["problems"] if p["kind"] == "event")
 
     @pytest.mark.script([])
+    async def test_events_about_deleted_pods_are_dropped(self, client: httpx.AsyncClient) -> None:
+        body = (await client.get("/api/status")).json()
+        assert not any("old01" in p["name"] for p in body["problems"])
+
+    @pytest.mark.script([])
     async def test_a_dead_upstream_costs_only_its_rows(self, client: httpx.AsyncClient, monkeypatch) -> None:
         from jarvis.tools.argocd.fake import FakeArgoCDClient
 

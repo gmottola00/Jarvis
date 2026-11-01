@@ -8,6 +8,7 @@ destructive anyway because it can trigger a sync on an auto-sync application.
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 import httpx
@@ -52,7 +53,12 @@ class ArgoCDClient:
     @staticmethod
     def _to_status(app: dict[str, Any]) -> ArgoAppStatus:
         status = app.get("status", {})
-        source = app.get("spec", {}).get("source", {})
+        spec = app.get("spec", {})
+        source = spec.get("source", {})
+        # Most apps here create their own Namespace and leave the destination empty;
+        # the namespace most of their resources land in is then the answer.
+        counts = Counter(r["namespace"] for r in status.get("resources") or [] if r.get("namespace"))
+        namespace = spec.get("destination", {}).get("namespace") or (counts.most_common(1)[0][0] if counts else "")
         return ArgoAppStatus(
             name=app.get("metadata", {}).get("name", "?"),
             sync=status.get("sync", {}).get("status", "Unknown"),
@@ -60,6 +66,7 @@ class ArgoCDClient:
             revision=(status.get("sync", {}).get("revision") or "")[:12],
             repo=source.get("repoURL", ""),
             path=source.get("path", ""),
+            namespace=namespace,
         )
 
     async def list_apps(self) -> list[ArgoAppStatus]:
