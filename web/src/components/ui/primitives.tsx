@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { Tone } from "../../lib/console/derive";
-import { LESSONS, type Topic } from "../../lib/console/learn";
+import { LESSONS, explainState, type Topic } from "../../lib/console/learn";
 import { useLearnMode } from "../../lib/hooks/useLearnMode";
 import { TONE } from "./tone";
 
@@ -162,6 +162,26 @@ function Prose({ text }: { text: string }) {
         return part;
       })}
     </>
+  );
+}
+
+/** A `Kubectl` line that only shows in learn mode: the command behind the view below it. */
+export function LearnCommand({ command }: { command: string }) {
+  const { on } = useLearnMode();
+  return on ? <Kubectl command={command} /> : null;
+}
+
+/** A status badge that says what its word means: as a tooltip always, spelled out in learn mode. */
+export function StateBadge({ tone, state, explain = false }: { tone: Tone; state: string; explain?: boolean }) {
+  const { on } = useLearnMode();
+  const meaning = explainState(state);
+  return (
+    <span className="inline-flex flex-col gap-1">
+      <Badge tone={tone} title={meaning}>
+        {state}
+      </Badge>
+      {explain && on && meaning && <span className="max-w-md text-[11px] leading-snug text-ink-400">{meaning}</span>}
+    </span>
   );
 }
 

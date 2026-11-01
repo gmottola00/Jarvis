@@ -5,7 +5,8 @@ import type { WorkloadSummary } from "../../lib/console/types";
 import { age } from "../../lib/format";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { Drawer } from "../ui/Drawer";
-import { Badge, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from "../ui/primitives";
+import { Badge, ErrorNote, Facts, Labels, Learn, LearnCommand, Loading, CardPanel, StateBadge, Tabs } from "../ui/primitives";
+import { kubectl } from "../../lib/console/kubectl";
 import { ConditionList } from "./ConditionList";
 import { ContainerCard } from "./ContainerCard";
 import { EventFeed } from "./EventFeed";
@@ -72,6 +73,8 @@ export function PodDrawer({
       {data && tab === "overview" && (
         <div className="space-y-4 px-5 py-4">
           <Learn topic="pod" />
+          <LearnCommand command={kubectl.pod(namespace, name)} />
+          <StateBadge tone={podTone(data)} state={podStatus(data)} explain />
           {data.message && (
             <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 font-mono text-[11px] break-words text-amber-300">
               {data.message}
@@ -128,6 +131,9 @@ export function PodDrawer({
       {data && tab === "logs" && (
         <div className="flex h-full flex-col">
           <Learn topic="logs" className="mx-5 my-3" />
+          <div className="mx-5 -mt-2 mb-2">
+            <LearnCommand command={kubectl.podLogs(namespace, name, data.containers[0]?.name)} />
+          </div>
           <div className="min-h-0 flex-1">
             <LogViewer source={{ kind: "pod", namespace, pod: name, containers: data.containers.map((c) => c.name) }} />
           </div>

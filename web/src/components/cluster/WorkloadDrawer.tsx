@@ -5,7 +5,8 @@ import type { ManifestKind, ReplicaSetView, WorkloadSummary } from "../../lib/co
 import { age, shortSha, splitImage } from "../../lib/format";
 import { usePolling } from "../../lib/hooks/usePolling";
 import { Drawer } from "../ui/Drawer";
-import { Badge, Empty, ErrorNote, Facts, Labels, Learn, Loading, CardPanel, Tabs } from "../ui/primitives";
+import { Badge, Empty, ErrorNote, Facts, Labels, Learn, LearnCommand, Loading, CardPanel, Tabs } from "../ui/primitives";
+import { kubectl } from "../../lib/console/kubectl";
 import { AppLink } from "./AppLink";
 import { ConditionList } from "./ConditionList";
 import { EventFeed } from "./EventFeed";
@@ -61,6 +62,7 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
       {data && w && tab === "rollout" && (
         <div className="space-y-4 px-5 py-4">
           <Learn topic={KIND_TOPIC[w.kind]} />
+          <LearnCommand command={kubectl.workload(w.kind, namespace, name)} />
           <Counters workload={w} />
 
           <CardPanel title="Spec">

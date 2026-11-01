@@ -1,3 +1,4 @@
+import { ArgoApps } from "../components/delivery/ArgoApps";
 import { ComponentRow } from "../components/delivery/ComponentRow";
 import { PipelineDiagram } from "../components/delivery/PipelineDiagram";
 import { argoTone } from "../components/delivery/status";
@@ -59,6 +60,7 @@ export function Delivery() {
       {data && (
         <>
           <Readouts readouts={readouts} />
+          <ArgoApps apps={data.apps} />
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="min-w-0 space-y-4">

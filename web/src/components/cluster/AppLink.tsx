@@ -6,7 +6,7 @@ export function AppLink({ namespace, tab }: { namespace: string; tab?: string })
   if (!isAppNamespace(namespace)) return null;
   return (
     <a
-      href={href("apps", namespace, tab)}
+      href={href("cluster", "apps", namespace, tab)}
       title={`Open the ${namespace} app page`}
       className="font-mono text-[10px] whitespace-nowrap text-sky-300 hover:text-sky-200"
     >

@@ -1,11 +1,11 @@
-import { GlowDot, HudPage, LiveStamp, RefreshButton, ToneCard } from "../components/hud";
-import { ErrorNote, Loading } from "../components/ui/primitives";
-import { TONE } from "../components/ui/tone";
-import { api } from "../lib/api";
-import { consoleApi } from "../lib/console/api";
-import { ingressEntries, ollamaEntry, type Entry } from "../lib/console/apps";
-import { usePolling } from "../lib/hooks/usePolling";
-import { href } from "../lib/route";
+import { GlowDot, LiveStamp, ToneCard } from "../hud";
+import { ErrorNote, Loading } from "../ui/primitives";
+import { TONE } from "../ui/tone";
+import { api } from "../../lib/api";
+import { consoleApi } from "../../lib/console/api";
+import { ingressEntries, ollamaEntry, type Entry } from "../../lib/console/apps";
+import { usePolling } from "../../lib/hooks/usePolling";
+import { href } from "../../lib/route";
 
 /** Delivery asks GHCR and GitHub on every call; a minute keeps it cheap. */
 const POLL_MS = 60_000;
@@ -16,7 +16,7 @@ const POLL_MS = 60_000;
  * each component is running. The GPU desktop's Ollama sits off the cluster and
  * comes from the models probe.
  */
-export function Apps() {
+export function AppGrid() {
   const network = usePolling(() => consoleApi.network(), POLL_MS);
   const lab = usePolling(api.overview, POLL_MS);
   const delivery = usePolling(consoleApi.delivery, POLL_MS);
@@ -40,18 +40,19 @@ export function Apps() {
   ].filter((g) => g.items.length);
 
   return (
-    <HudPage
-      title="Apps"
-      subtitle="Everything with an address on the tailnet. Click a name for its page, logs for its logs."
-      live={refreshing}
-      status={
-        <>
-          <LiveStamp error={Object.keys(errors).length > 0} every={POLL_MS} at={lab.data?.fetched_at} />
-          <span className="font-mono text-[11px] text-ink-500">argocd apps × tailscale ingresses{tailnet ? ` · ${tailnet}` : ""}</span>
-        </>
-      }
-      actions={<RefreshButton onClick={refresh} refreshing={refreshing} />}
-    >
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <LiveStamp error={Object.keys(errors).length > 0} every={POLL_MS} at={lab.data?.fetched_at} />
+        <span className="font-mono text-[11px] text-ink-500">argocd apps × tailscale ingresses{tailnet ? ` · ${tailnet}` : ""}</span>
+        <button
+          type="button"
+          onClick={refresh}
+          className="ml-auto font-mono text-[11px] text-ink-500 hover:text-ink-200"
+          disabled={refreshing}
+        >
+          {refreshing ? "… refreshing" : "↻ refresh"}
+        </button>
+      </div>
       {network.loading && <Loading label="listing ingresses…" />}
       <ErrorNote errors={Object.keys(errors).length ? errors : null} />
       {/* The overview also asks nodes, pods and Alertmanager; only its ArgoCD answer is used here. */}
@@ -74,7 +75,7 @@ export function Apps() {
           </div>
         </section>
       ))}
-    </HudPage>
+    </div>
   );
 }
 
@@ -89,7 +90,7 @@ function AppCard({ entry, inCluster }: { entry: Entry; inCluster: boolean }) {
           <GlowDot tone={entry.tone} />
           {inCluster ? (
             <a
-              href={href("apps", entry.name)}
+              href={href("cluster", "apps", entry.name)}
               className="font-display text-xl leading-none font-bold tracking-[0.12em] text-ink-200 hover:text-ultron-300"
               title={`Open ${entry.name}: logs, pods, delivery, events`}
             >
@@ -119,7 +120,7 @@ function AppCard({ entry, inCluster }: { entry: Entry; inCluster: boolean }) {
         <span className={`text-xs leading-snug ${entry.tone === "ok" ? "text-ink-500" : TONE[entry.tone].text}`}>{entry.status}</span>
         {inCluster && (
           <a
-            href={href("apps", entry.name, "logs")}
+            href={href("cluster", "apps", entry.name, "logs")}
             className="ml-auto flex shrink-0 items-center border border-ink-700 px-3.5 py-1.5 font-display text-xs font-semibold tracking-[0.2em] text-ink-300 uppercase hover:border-ink-500 hover:text-ink-200"
           >
             logs

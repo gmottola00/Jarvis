@@ -1,18 +1,14 @@
 import {
-  Activity,
-  Bell,
-  Cpu,
   GraduationCap,
-  LayoutGrid,
+  HeartPulse,
   Menu,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Rocket,
+  Settings,
   SquarePen,
   Server,
-  ShieldAlert,
-  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -27,15 +23,11 @@ export interface NavItem<T extends string> {
 }
 
 export const ICONS = {
-  dashboard: MessageSquare,
-  runs: Activity,
-  approvals: ShieldAlert,
-  models: Cpu,
-  capabilities: Wrench,
+  status: HeartPulse,
   cluster: Server,
   delivery: Rocket,
-  apps: LayoutGrid,
-  alerts: Bell,
+  jarvis: MessageSquare,
+  settings: Settings,
 } satisfies Record<string, LucideIcon>;
 
 const COLLAPSED_KEY = "jarvis.sidebar";
@@ -49,22 +41,25 @@ function storedCollapsed(): boolean {
 }
 
 /**
- * The left rail. Two groups - the agent (decides and changes) and the console
- * (only looks) - split by a divider. Collapsed it is icons only; on a phone it
- * is an overlay drawer opened from the top bar.
+ * The left rail: four questions — is everything fine, what runs, what ships,
+ * ask Jarvis — and settings in the footer. Collapsed it is icons only; on a
+ * phone it is an overlay drawer opened from the top bar.
  */
 export function Sidebar<T extends string>({
   items,
-  splitAt,
   active,
   onSelect,
+  badges = {},
+  settings,
   onNewChat,
 }: {
   items: readonly NavItem<T>[];
-  /** Index of the first console item; a divider goes before it. */
-  splitAt: number;
-  active: T;
+  active: string;
   onSelect: (id: T) => void;
+  /** A count on an item that needs you: problems on status, waiting approvals on jarvis. */
+  badges?: Partial<Record<T, { count: number; tone: "bad" | "warn" }>>;
+  /** The footer entry for models and capabilities. */
+  settings: { active: boolean; onSelect: () => void };
   /** Start a conversation from scratch. */
   onNewChat: () => void;
 }) {
@@ -110,17 +105,12 @@ export function Sidebar<T extends string>({
         {!narrow && <span className="font-display text-sm font-semibold tracking-[0.15em] uppercase">new chat</span>}
       </button>
 
-      {items.map((item, index) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const current = item.id === active;
+        const badge = badges[item.id];
         return (
           <div key={item.id}>
-            {index === splitAt && (
-              <div className={`my-2 flex items-center gap-2 ${narrow ? "px-2" : "px-2.5"}`}>
-                {!narrow && <span className="font-mono text-[9px] tracking-widest text-ink-700 uppercase">console</span>}
-                <span className="h-px flex-1 bg-ink-850" />
-              </div>
-            )}
             <button
               type="button"
               title={narrow ? item.label : undefined}
@@ -142,12 +132,36 @@ export function Sidebar<T extends string>({
               )}
               <Icon className={`size-4 shrink-0 ${current ? "drop-shadow-[0_0_6px_var(--color-ultron-500)]" : ""}`} />
               {!narrow && <span className="font-display text-sm font-semibold tracking-[0.15em] uppercase">{item.label}</span>}
+              {badge && badge.count > 0 && (
+                <span
+                  className={`font-mono text-[10px] font-semibold ${
+                    narrow ? "absolute top-0.5 right-1" : "ml-auto"
+                  } rounded px-1.5 py-px ${badge.tone === "bad" ? "bg-rose-500/20 text-rose-300" : "bg-amber-400/15 text-amber-300"}`}
+                >
+                  {badge.count}
+                </span>
+              )}
             </button>
           </div>
         );
       })}
 
       <div className="mt-auto space-y-1 border-t border-ink-850 pt-2">
+        <button
+          type="button"
+          onClick={() => {
+            settings.onSelect();
+            setMobileOpen(false);
+          }}
+          aria-current={settings.active ? "page" : undefined}
+          title="Models and capabilities"
+          className={`flex w-full items-center gap-3 rounded-md py-2 ${narrow ? "justify-center" : "px-2.5"} ${
+            settings.active ? "text-ultron-300" : "text-ink-600 hover:text-ink-300"
+          }`}
+        >
+          <Settings className="size-4 shrink-0" />
+          {!narrow && <span className="font-mono text-[11px]">settings</span>}
+        </button>
         <button
           type="button"
           onClick={learn.toggle}

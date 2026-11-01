@@ -9,6 +9,8 @@ import type {
   ManifestKind,
   NetworkView,
   PodDetail,
+  Problem,
+  StatusView,
   WorkloadDetail,
   WorkloadSummary,
 } from "./types";
@@ -44,6 +46,13 @@ export const consoleApi = {
     get<Record<string, unknown>>(`/api/k8s/manifest/${kind}/${seg(namespace)}/${seg(name)}`),
 
   delivery: () => get<DeliveryOverview>("/api/delivery/overview"),
+
+  status: () => get<StatusView>("/api/status"),
+  /** The investigation prompt for one status problem — what its "Investigate" button sends. */
+  statusBrief: (problem: Pick<Problem, "kind" | "namespace" | "name">) =>
+    get<{ prompt: string }>(
+      `/api/status/brief?${new URLSearchParams({ kind: problem.kind, namespace: problem.namespace, name: problem.name })}`,
+    ),
 
   alerts: (includeSilenced = false) => get<AlertsOverview>(`/api/alerts?include_silenced=${includeSilenced}`),
   /** The investigation prompt for one alert — what the "Investigate" button sends to the agent. */

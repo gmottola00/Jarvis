@@ -20,7 +20,7 @@ export function askJarvis(prompt: string): void {
   } catch {
     /* blocked storage: the tab still switches, the prompt is lost */
   }
-  window.location.hash = "dashboard";
+  window.location.hash = "jarvis";
 }
 
 export function pendingHandoff(): string | null {

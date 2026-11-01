@@ -1,7 +1,7 @@
 import { podStatus, podTone } from "../../lib/console/derive";
 import type { PodDetail } from "../../lib/console/types";
 import { age } from "../../lib/format";
-import { Badge } from "../ui/primitives";
+import { StateBadge } from "../ui/primitives";
 import { Table, type Column } from "../ui/Table";
 import type { Select } from "./selection";
 
@@ -21,7 +21,7 @@ export function PodTable({
     ...(showNamespace ? [{ key: "ns", header: "namespace", cell: (p: PodDetail) => <span className="text-ink-600">{p.namespace}</span> }] : []),
     { key: "name", header: "name", cell: (p) => <span className="text-ink-200">{p.name}</span> },
     { key: "ready", header: "ready", cell: (p) => p.ready },
-    { key: "status", header: "status", cell: (p) => <Badge tone={podTone(p)}>{podStatus(p)}</Badge> },
+    { key: "status", header: "status", cell: (p) => <StateBadge tone={podTone(p)} state={podStatus(p)} /> },
     {
       key: "restarts",
       header: "restarts",

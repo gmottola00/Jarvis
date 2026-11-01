@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * A right-hand sheet for drilling into one object. Esc or the backdrop closes
@@ -28,7 +29,9 @@ export function Drawer({
 
   if (!open) return null;
 
-  return (
+  // Portalled to <body>, so a drawer opened from deep inside a page's content
+  // still covers the whole viewport whatever its ancestors do.
+  return createPortal(
     <div className="fixed inset-0 z-40 flex justify-end">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-ink-950/70 backdrop-blur-[2px]" />
       <div
@@ -52,6 +55,7 @@ export function Drawer({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -4,22 +4,19 @@ import {
   GlowDot,
   HudButton,
   HudCard,
-  HudPage,
   HudPanel,
-  LiveStamp,
   Readouts,
-  RefreshButton,
   ToneCard,
   type Readout,
-} from "../components/hud";
-import { ErrorNote, Loading } from "../components/ui/primitives";
-import { TONE } from "../components/ui/tone";
-import type { Tone } from "../lib/console/derive";
-import { consoleApi } from "../lib/console/api";
-import type { AlertView, TargetView } from "../lib/console/types";
-import { age } from "../lib/format";
-import { askJarvis } from "../lib/handoff";
-import { usePolling } from "../lib/hooks/usePolling";
+} from "../hud";
+import { ErrorNote, Loading } from "../ui/primitives";
+import { TONE } from "../ui/tone";
+import type { Tone } from "../../lib/console/derive";
+import { consoleApi } from "../../lib/console/api";
+import type { AlertView, TargetView } from "../../lib/console/types";
+import { age } from "../../lib/format";
+import { askJarvis } from "../../lib/handoff";
+import { usePolling } from "../../lib/hooks/usePolling";
 
 /** Alertmanager re-evaluates every 30s at best; polling faster only shows the same list. */
 const POLL_MS = 30_000;
@@ -27,19 +24,16 @@ const POLL_MS = 30_000;
 const SEVERITY_TONE: Record<string, Tone> = { critical: "bad", error: "bad", warning: "warn", info: "info" };
 
 /**
- * What is firing, and a button that hands one alert to the agent.
+ * What is firing, and a button that hands one alert to the agent: the alerts
+ * tab of the status page.
  *
- * Nothing on this page involves a model until you click "Investigate": the list
- * comes straight from Alertmanager, and the click is the decision to spend a run
- * on it. That keeps the proactive part manual — no webhook starts anything.
+ * Nothing here involves a model until you click "Investigate": the list comes
+ * straight from Alertmanager, and the click is the decision to spend a run on
+ * it. That keeps the proactive part manual — no webhook starts anything.
  */
-export function Alerts() {
+export function AlertList() {
   const [showSilenced, setShowSilenced] = useState(false);
-  const { data, error, loading, refresh, refreshing } = usePolling(
-    () => consoleApi.alerts(showSilenced),
-    POLL_MS,
-    showSilenced,
-  );
+  const { data, error, loading } = usePolling(() => consoleApi.alerts(showSilenced), POLL_MS, showSilenced);
 
   const alerts = data?.alerts ?? [];
   const count = (severity: string) => alerts.filter((a) => a.severity === severity && a.state === "active").length;
@@ -54,25 +48,7 @@ export function Alerts() {
   ];
 
   return (
-    <HudPage
-      title="Alerts"
-      subtitle="Straight from Alertmanager. Ultron looks only when you ask it to."
-      live={refreshing}
-      status={<LiveStamp error={Boolean(error)} at={data?.fetched_at} />}
-      actions={
-        <>
-          <HudButton
-            variant="ghost"
-            pressed={showSilenced}
-            onClick={() => setShowSilenced((on) => !on)}
-            title="Show silenced and inhibited alerts"
-          >
-            {showSilenced ? "hide silenced" : "show silenced"}
-          </HudButton>
-          <RefreshButton onClick={refresh} refreshing={refreshing} />
-        </>
-      }
-    >
+    <div className="space-y-4">
       {loading && <Loading label="asking Alertmanager and Prometheus…" />}
       <ErrorNote errors={error} />
       {data && <ErrorNote errors={data.errors} />}
@@ -82,7 +58,23 @@ export function Alerts() {
           <Readouts readouts={readouts} />
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <HudCard eyebrow="alertmanager" title="Firing" note={`${active} active`}>
+            <HudCard
+              eyebrow="alertmanager"
+              title="Firing"
+              note={
+                <span className="flex items-center gap-3">
+                  {active} active
+                  <HudButton
+                    variant="ghost"
+                    pressed={showSilenced}
+                    onClick={() => setShowSilenced((on) => !on)}
+                    title="Show silenced and inhibited alerts"
+                  >
+                    {showSilenced ? "hide silenced" : "show silenced"}
+                  </HudButton>
+                </span>
+              }
+            >
               {alerts.length === 0 ? (
                 <p className="px-6 pt-2 pb-5 text-xs text-ink-500">Nothing is firing. Quiet is the expected state.</p>
               ) : (
@@ -97,7 +89,7 @@ export function Alerts() {
           </div>
         </>
       )}
-    </HudPage>
+    </div>
   );
 }
 

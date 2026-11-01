@@ -257,7 +257,7 @@ function RunView({ runId, summary }: { runId: string; summary?: RunSummary }) {
         {run.pending ? (
           <p className="text-[13px] leading-normal text-ink-300">
             No answer yet. The run resumes from its checkpoint once <span className="font-mono">{run.pending.tool}</span> is{" "}
-            <a href="#approvals" className="text-ultron-300 hover:text-ink-200">
+            <a href="#jarvis/approvals" className="text-ultron-300 hover:text-ink-200">
               approved or declined ↗
             </a>
           </p>
