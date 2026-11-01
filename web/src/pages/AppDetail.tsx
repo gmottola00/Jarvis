@@ -1,23 +1,22 @@
 import { useState } from "react";
-import { EventFeed } from "../components/cluster/EventFeed";
-import { LogViewer } from "../components/cluster/LogViewer";
+import { AppComponents } from "../components/app/AppComponents";
+import { AppLogs } from "../components/app/AppLogs";
+import { ResourceMap } from "../components/app/ResourceMap";
+import { NamespaceEvents } from "../components/cluster/NamespacePanels";
 import { PodDrawer } from "../components/cluster/PodDrawer";
 import { PodTable } from "../components/cluster/PodTable";
-import type { Selection } from "../components/cluster/selection";
+import { refOpener, type Selection } from "../components/cluster/selection";
 import { WorkloadDrawer } from "../components/cluster/WorkloadDrawer";
 import { ComponentRow } from "../components/delivery/ComponentRow";
 import { argoTone } from "../components/delivery/status";
-import { BracketTabs, GlowDot, HudPage, HudPanel, LiveStamp, RefreshButton } from "../components/hud";
-import { Empty, ErrorNote, Learn, LearnCommand, Loading, StateBadge } from "../components/ui/primitives";
-import { NetworkMap } from "../components/cluster/NetworkMap";
-import { kubectl } from "../lib/console/kubectl";
+import { BracketTabs, HudPage, HudPanel, LiveStamp, RefreshButton } from "../components/hud";
+import { Empty, ErrorNote, LearnCommand, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
-import { api } from "../lib/api";
 import { consoleApi } from "../lib/console/api";
 import { ingressEntries } from "../lib/console/apps";
-import { podHealthy, podStatus, podTone, splitRef, workloadTone } from "../lib/console/derive";
-import type { PodDetail, WorkloadSummary } from "../lib/console/types";
-import { shortSha, splitImage } from "../lib/format";
+import { podHealthy } from "../lib/console/derive";
+import { kubectl } from "../lib/console/kubectl";
+import type { AppDelivery } from "../lib/console/types";
 import { usePolling } from "../lib/hooks/usePolling";
 import { href, navigate } from "../lib/route";
 
@@ -25,29 +24,15 @@ const TABS = ["logs", "pods", "map", "delivery", "events"] as const;
 type AppTab = (typeof TABS)[number];
 
 const PODS_MS = 10_000;
-const HEADER_MS = 60_000;
-
-/** `tickup-backend` in namespace `tickup` reads as `backend`. */
-function short(workload: string, namespace: string): string {
-  return workload.startsWith(`${namespace}-`) ? workload.slice(namespace.length + 1) : workload;
-}
-
-function ownedBy(pods: PodDetail[], w: WorkloadSummary): PodDetail[] {
-  const bySelector = pods.filter((p) => Object.entries(w.selector).every(([k, v]) => p.labels[k] === v));
-  return Object.keys(w.selector).length && bySelector.length ? bySelector : pods.filter((p) => p.name.startsWith(`${w.name}-`));
-}
-
-/** The backend first: that is the log you open an app for nine times out of ten. */
-function defaultComponent(workloads: WorkloadSummary[]): string {
-  return (workloads.find((w) => /backend|api|server/.test(w.name)) ?? workloads[0])?.name ?? "";
-}
+/** Delivery asks GHCR and GitHub on every call; it feeds the header and the delivery tab. */
+const DELIVERY_MS = 60_000;
 
 /**
  * One app — a namespace — with its logs one click from the apps grid.
  *
  * Logs are the default tab and follow a whole workload, every replica merged,
- * with kubelet probe noise dropped. Pods, delivery and events are the next
- * questions, each a tab that only fetches while it is open.
+ * with kubelet probe noise dropped. Pods, map, delivery and events are the
+ * next questions; the tab and the log component are part of the URL.
  */
 export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?: string; component?: string }) {
   const tab: AppTab = TABS.includes(rawTab as AppTab) ? (rawTab as AppTab) : "logs";
@@ -55,21 +40,15 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
 
   const workloads = usePolling(() => consoleApi.workloads(name), PODS_MS, name);
   const pods = usePolling(() => consoleApi.pods(name), PODS_MS, name);
-  const network = usePolling(() => consoleApi.network(name), HEADER_MS, name);
-  const overview = usePolling(api.overview, HEADER_MS);
+  const network = usePolling(() => consoleApi.network(name), DELIVERY_MS, name);
+  const delivery = usePolling(consoleApi.delivery, DELIVERY_MS);
 
-  const argo = overview.data?.apps.find((a) => a.name === name);
-  const entry = network.data ? ingressEntries(network.data, argo ? [argo] : [], [])[0] : undefined;
+  const app = delivery.data?.apps.find((a) => a.name === name);
+  const entry = network.data ? ingressEntries(network.data, app ? [app] : [])[0] : undefined;
   const allWorkloads = workloads.data ?? [];
   const allPods = pods.data ?? [];
   const unhealthy = allPods.filter((p) => !podHealthy(p)).length;
   const refreshing = workloads.refreshing || pods.refreshing;
-
-  const openRef = (ns: string, ref: string) => {
-    const [kind, obj] = splitRef(ref);
-    if (kind === "Pod") setSelection({ kind: "pod", namespace: ns, name: obj });
-    else if (["Deployment", "StatefulSet", "DaemonSet"].includes(kind)) setSelection({ kind: "workload", namespace: ns, name: obj });
-  };
 
   return (
     <HudPage
@@ -80,9 +59,9 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
             ← apps
           </a>
           {entry?.host && <span className="font-mono text-ink-500">{entry.host}</span>}
-          {argo && (
-            <span className={`font-mono ${TONE[argoTone(argo)].text}`}>
-              argo {argo.sync} · {argo.health}
+          {app && (
+            <span className={`font-mono ${TONE[argoTone(app)].text}`}>
+              argo {app.sync} · {app.health}
             </span>
           )}
         </span>
@@ -101,7 +80,7 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
               open ↗
             </a>
           )}
-          <RefreshButton onClick={() => [workloads, pods, network].forEach((p) => p.refresh())} refreshing={refreshing} />
+          <RefreshButton onClick={() => [workloads, pods, network, delivery].forEach((p) => p.refresh())} refreshing={refreshing} />
         </>
       }
       overlay={
@@ -117,7 +96,7 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
     >
       <ErrorNote errors={workloads.error} />
 
-      <Components workloads={allWorkloads} pods={allPods} onSelect={setSelection} />
+      <AppComponents workloads={allWorkloads} pods={allPods} onSelect={setSelection} />
 
       <BracketTabs
         value={tab}
@@ -137,7 +116,7 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
         ) : allWorkloads.length === 0 ? (
           <Empty>No workloads in namespace {name}.</Empty>
         ) : (
-          <Logs namespace={name} workloads={allWorkloads} pods={allPods} initial={component} />
+          <AppLogs namespace={name} workloads={allWorkloads} pods={allPods} initial={component} />
         ))}
 
       {tab === "pods" && (
@@ -152,118 +131,25 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
       )}
 
       {tab === "map" && <ResourceMap namespace={name} workloads={allWorkloads} pods={allPods} onSelect={setSelection} />}
-      {tab === "delivery" && <Delivery name={name} />}
-      {tab === "events" && <Events namespace={name} onObject={openRef} />}
+
+      {tab === "delivery" && (
+        <DeliveryPanel name={name} app={app} loading={delivery.loading} error={delivery.error} />
+      )}
+
+      {tab === "events" && (
+        <NamespaceEvents namespace={name} onObject={refOpener(setSelection)} command={kubectl.appEvents(name)} />
+      )}
     </HudPage>
   );
 }
 
-/** One chip per workload: ready count and the image tag it runs. Click to open its drawer. */
-function Components({
-  workloads,
-  pods,
-  onSelect,
-}: {
-  workloads: WorkloadSummary[];
-  pods: PodDetail[];
-  onSelect: (s: Selection) => void;
-}) {
-  if (!workloads.length) return null;
-  return (
-    <div className="flex flex-wrap gap-2">
-      {workloads.map((w) => {
-        const restarts = ownedBy(pods, w).reduce((sum, p) => sum + p.restarts, 0);
-        const tone = workloadTone(w);
-        return (
-          <button
-            key={w.name}
-            type="button"
-            onClick={() => onSelect({ kind: "workload", namespace: w.namespace, name: w.name })}
-            className="flex items-center gap-2.5 border border-ultron-500/22 bg-ink-900/85 px-3 py-2 text-left hover:border-ultron-500/50"
-          >
-            <GlowDot tone={tone} size="sm" />
-            <span className="font-display text-sm font-semibold tracking-[0.12em] text-ink-200">{short(w.name, w.namespace)}</span>
-            <span className={`font-mono text-[11px] ${TONE[tone].text}`}>
-              {w.ready}/{w.desired}
-            </span>
-            {w.images.map((img) => (
-              <span key={img} className="font-mono text-[11px] text-ink-500" title={img}>
-                :{shortSha(splitImage(img).tag)}
-              </span>
-            ))}
-            {restarts > 0 && <span className="font-mono text-[11px] text-amber-300">↻{restarts}</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Logs({
-  namespace,
-  workloads,
-  pods,
-  initial,
-}: {
-  namespace: string;
-  workloads: WorkloadSummary[];
-  pods: PodDetail[];
-  /** From the URL (`#cluster/apps/tickup/logs/tickup-web`), e.g. a status link to a failing pod's workload. */
-  initial?: string;
-}) {
-  const [component, setComponent] = useState(() =>
-    initial && workloads.some((w) => w.name === initial) ? initial : defaultComponent(workloads),
-  );
-  const workload = workloads.find((w) => w.name === component) ?? workloads[0];
-  const sample = ownedBy(pods, workload)[0];
-  const containers = sample?.containers.map((c) => c.name) ?? [];
-
-  return (
-    <section className="flex h-[calc(100vh-15rem)] min-h-[28rem] flex-col border border-ultron-500/22 bg-ink-900/85">
-      {workloads.length > 1 && (
-        <div className="flex gap-1.5 border-b border-ink-850 px-5 py-2">
-          {workloads.map((w) => (
-            <button
-              key={w.name}
-              type="button"
-              onClick={() => {
-                setComponent(w.name);
-                window.history.replaceState(null, "", href("cluster", "apps", namespace, "logs", w.name));
-              }}
-              className={`px-2.5 py-1 font-mono text-[11px] ${
-                w.name === workload.name ? "bg-ultron-500/10 text-ultron-300 ring-1 ring-ultron-500/40" : "text-ink-500 hover:text-ink-200"
-              }`}
-            >
-              {short(w.name, namespace)}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="px-5">
-        <LearnCommand command={kubectl.appLogs(namespace, workload.selector, containers.length > 1 ? containers[0] : undefined)} />
-      </div>
-      <div className="min-h-0 flex-1">
-        <LogViewer
-          // A new component, or containers appearing once pods load, starts a fresh viewer.
-          key={`${workload.name}:${containers.join(",")}`}
-          source={{ kind: "workload", namespace, workload: workload.name, containers }}
-        />
-      </div>
-    </section>
-  );
-}
-
-const DELIVERY_MS = 30_000;
-
-function Delivery({ name }: { name: string }) {
-  const { data, error, loading } = usePolling(consoleApi.delivery, DELIVERY_MS);
-  const app = data?.apps.find((a) => a.name === name);
+function DeliveryPanel({ name, app, loading, error }: { name: string; app?: AppDelivery; loading: boolean; error: string | null }) {
   return (
     <HudPanel title="Delivery" note="built · green · pinned · running" topic="gitops">
       <LearnCommand command={kubectl.appDelivery(name)} />
       {loading && <Loading label="asking ArgoCD, GitHub and GHCR…" />}
       <ErrorNote errors={error} />
-      {data && !app && <Empty>{name} is not an ArgoCD app.</Empty>}
+      {!loading && !app && <Empty>{name} is not an ArgoCD app.</Empty>}
       {app && app.components.length === 0 && <Empty>{app.note || "No pinned images."}</Empty>}
       {app && (
         <div className="space-y-3">
@@ -273,95 +159,5 @@ function Delivery({ name }: { name: string }) {
         </div>
       )}
     </HudPanel>
-  );
-}
-
-const EVENTS_MS = 15_000;
-
-function Events({ namespace, onObject }: { namespace: string; onObject: (ns: string, ref: string) => void }) {
-  const { data, error, loading } = usePolling(() => consoleApi.events(namespace, 200), EVENTS_MS, namespace);
-  return (
-    <HudPanel title="Events" note={data ? `${data.length}` : undefined} topic="events">
-      <LearnCommand command={kubectl.appEvents(namespace)} />
-      {loading && <Loading />}
-      <ErrorNote errors={error} />
-      {data && <EventFeed events={data} onObject={onObject} showNamespace={false} />}
-    </HudPanel>
-  );
-}
-
-const MAP_MS = 30_000;
-
-/**
- * The chain of objects behind the app, both ways: how a request gets in
- * (Ingress → Service → Endpoints → Pod) and who keeps the pods alive
- * (Deployment → ReplicaSet → Pod). Every box opens its drawer.
- */
-function ResourceMap({
-  namespace,
-  workloads,
-  pods,
-  onSelect,
-}: {
-  namespace: string;
-  workloads: WorkloadSummary[];
-  pods: PodDetail[];
-  onSelect: (s: Selection) => void;
-}) {
-  const network = usePolling(() => consoleApi.network(namespace), MAP_MS, namespace);
-  return (
-    <div className="space-y-4">
-      <LearnCommand command={kubectl.appMap(namespace)} />
-      <HudPanel title="Traffic" note="ingress → service → endpoints → pod" topic="service">
-        {network.loading && <Loading />}
-        <ErrorNote errors={network.error} />
-        {network.data && <NetworkMap network={network.data} pods={pods} onSelect={onSelect} />}
-      </HudPanel>
-      <HudPanel title="Ownership" note="workload → replicaset → pod" topic="rollout">
-        <Learn topic="deployment" />
-        <ul className="space-y-4">
-          {workloads.map((w) => {
-            const mine = ownedBy(pods, w);
-            const sets = [...new Set(mine.map((p) => p.owner).filter(Boolean))];
-            return (
-              <li key={w.name} className="font-mono text-xs">
-                <button
-                  type="button"
-                  onClick={() => onSelect({ kind: "workload", namespace, name: w.name })}
-                  className="text-ink-200 hover:text-ultron-300"
-                >
-                  {w.kind}/{w.name}
-                </button>
-                <span className={`ml-2 ${TONE[workloadTone(w)].text}`}>
-                  {w.ready}/{w.desired}
-                </span>
-                {(sets.length ? sets : [""]).map((rs) => (
-                  <div key={rs || "direct"} className="mt-1.5 ml-4 border-l border-ink-800 pl-3">
-                    {rs && <p className="text-ink-500">└ {rs}</p>}
-                    <ul className="mt-1 ml-4 space-y-1">
-                      {mine
-                        .filter((p) => !rs || p.owner === rs)
-                        .map((p) => (
-                          <li key={p.name} className="flex items-center gap-2">
-                            <span className="text-ink-700">└</span>
-                            <button
-                              type="button"
-                              onClick={() => onSelect({ kind: "pod", namespace, name: p.name })}
-                              className="text-ink-300 hover:text-ultron-300"
-                            >
-                              Pod/{p.name}
-                            </button>
-                            <StateBadge tone={podTone(p)} state={podStatus(p)} />
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                ))}
-              </li>
-            );
-          })}
-        </ul>
-      </HudPanel>
-    </div>
   );
 }

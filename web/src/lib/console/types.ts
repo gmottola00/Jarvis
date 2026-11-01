@@ -303,6 +303,7 @@ export interface AppDelivery {
   sync: string;
   health: string;
   revision: string;
+  repo: string;
   path: string;
   tracking: Tracking;
   /** Why a non-`kustomize` app has no rows. */

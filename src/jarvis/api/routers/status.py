@@ -3,7 +3,7 @@
 Every source that can say something is wrong — pods, nodes, ArgoCD,
 Alertmanager, recent warning events, the local model host, runs waiting at the
 gate — is asked concurrently and flattened into one list of ``Problem``s,
-worst first. Like the lab overview, a dead upstream is recorded in ``errors``
+worst first. A dead upstream is recorded in ``errors``
 and costs its own rows, never the page.
 
 ``GET /api/status/brief`` is the bridge to the agent: it renders the playbook
@@ -13,7 +13,7 @@ for one problem, and the page sends it as the first message of a new chat.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Literal, TypeVar
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -21,16 +21,14 @@ from pydantic import BaseModel
 from jarvis.agent.llm import is_native
 from jarvis.agent.playbooks import investigate_alert, investigate_argo_app, investigate_pod
 from jarvis.api.deps import Services, services
-from jarvis.core.console import AlertView, EventRecord
-from jarvis.core.types import ArgoAppStatus, NodeStatus, PodStatus, Problem, StatusCounts, StatusView
+from jarvis.api.fetch import attempt, upstream_http_error
+from jarvis.core.console import AlertView, EventRecord, PodDetail
+from jarvis.core.types import ArgoAppStatus, NodeStatus, Problem, StatusCounts, StatusView
 from jarvis.exceptions import ConfigurationError, UpstreamError
-from jarvis.logging import get_logger
 from jarvis.tools import alertmanager, argocd, k8s
 
-logger = get_logger(__name__)
 router = APIRouter(prefix="/api/status", tags=["status"])
 
-T = TypeVar("T")
 
 #: Warning events shown on the status page; the cluster's events tab has the rest.
 MAX_EVENTS = 10
@@ -45,18 +43,13 @@ class Brief(BaseModel):
     prompt: str
 
 
-async def _attempt(name: str, call: Callable[[], Awaitable[T]], errors: dict[str, str]) -> T | None:
-    """Run one fetch, recording the failure instead of propagating it."""
-    try:
-        return await call()
-    except Exception as exc:  # noqa: BLE001 - a dead upstream is a row, not a 500
-        errors[name] = f"{type(exc).__name__}: {exc}"
-        logger.warning("status.fetch_failed", target=name, error=str(exc))
-        return None
-
-
 async def _alerts() -> list[AlertView]:
-    """Active alerts, or none when Alertmanager is not configured (see ``lab._firing_alerts``)."""
+    """Active alerts, or none when Alertmanager is not configured.
+
+    Alerts are an addition, not part of what makes the lab healthy: an install
+    without Alertmanager must not show a problem forever because of a setting
+    it never meant to have.
+    """
     try:
         client = alertmanager.provider.get()
     except ConfigurationError:
@@ -69,17 +62,22 @@ def _app_link(namespace: str, tab: str) -> str:
     return f"#cluster/apps/{namespace}/{tab}"
 
 
-def _workload_of(pod: str) -> str:
-    """``tickup-web-8c9d7f6b5-zx8vn`` → ``tickup-web``: the Deployment behind a ReplicaSet pod.
+def _workload_of(pod: PodDetail) -> str:
+    """The workload that owns a pod, read from its owner reference.
 
-    A guess from the naming convention, good enough for a link: a StatefulSet
-    pod (``postgres-0``) loses only its ordinal, and the app page falls back to
-    its default component when the name matches nothing.
+    A Deployment owns its pods through a ReplicaSet named ``<deployment>-<template hash>``;
+    the hash never contains a dash, so dropping the last segment is exact.
+    Empty for a bare pod or a Job's.
     """
-    parts = pod.split("-")
-    if len(parts) >= 3 and len(parts[-1]) == 5 and 8 <= len(parts[-2]) <= 10:
-        return "-".join(parts[:-2])
-    return "-".join(parts[:-1]) if len(parts) > 1 and parts[-1].isdigit() else pod
+    kind, _, owner = pod.owner.partition("/")
+    if kind == "ReplicaSet":
+        return owner.rsplit("-", 1)[0]
+    return owner if kind in {"StatefulSet", "DaemonSet"} else ""
+
+
+def _needs_look(pod: PodDetail) -> bool:
+    """Not Running-and-ready. A finished Job pod (Succeeded) is done, not broken."""
+    return pod.phase != "Succeeded" and not pod.healthy
 
 
 def _node_problems(nodes: list[NodeStatus]) -> list[Problem]:
@@ -99,7 +97,7 @@ def _node_problems(nodes: list[NodeStatus]) -> list[Problem]:
     ]
 
 
-def _pod_problems(pods: list[PodStatus]) -> list[Problem]:
+def _pod_problems(pods: list[PodDetail]) -> list[Problem]:
     return [
         Problem(
             id=f"pod:{p.namespace}/{p.name}",
@@ -109,7 +107,7 @@ def _pod_problems(pods: list[PodStatus]) -> list[Problem]:
             namespace=p.namespace,
             name=p.name,
             detail=f"{p.phase} · ready {p.ready or '?'} · {p.restarts} restarts",
-            link=f"{_app_link(p.namespace, 'logs')}/{_workload_of(p.name)}",
+            link="/".join(filter(None, (_app_link(p.namespace, "logs"), _workload_of(p)))),
         )
         for p in pods
     ]
@@ -199,14 +197,15 @@ async def status(svc: Services = Depends(services)) -> StatusView:
     client = k8s.provider.get
 
     nodes, pods, apps, alerts, events, gpu = await asyncio.gather(
-        _attempt("k8s.nodes", lambda: client().list_nodes(), errors),
-        _attempt("k8s.pods", lambda: client().unhealthy_pods(), errors),
-        _attempt("argocd.apps", lambda: argocd.provider.get().list_apps(), errors),
-        _attempt("alertmanager.alerts", _alerts, errors),
-        _attempt("k8s.events", lambda: client().events("all", limit=200), errors),
-        _attempt("models.gpu", svc.models.gpu, errors),
+        attempt("k8s.nodes", lambda: client().list_nodes(), errors),
+        attempt("k8s.pods", lambda: client().pod_details("all"), errors),
+        attempt("argocd.apps", lambda: argocd.provider.get().list_apps(), errors),
+        attempt("alertmanager.alerts", _alerts, errors),
+        attempt("k8s.events", lambda: client().events("all", limit=200), errors),
+        attempt("models.gpu", svc.models.gpu, errors),
     )
-    nodes, pods, apps, alerts, events = nodes or [], pods or [], apps or [], alerts or [], events or []
+    nodes, apps, alerts, events = nodes or [], apps or [], alerts or [], events or []
+    pods = [p for p in pods or [] if _needs_look(p)]
     pending = svc.audit.pending()
 
     problems = _node_problems(nodes) + _pod_problems(pods) + _argo_problems(apps) + _alert_problems(alerts)
@@ -241,6 +240,46 @@ async def status(svc: Services = Depends(services)) -> StatusView:
     return StatusView(problems=problems, counts=counts, errors=errors)
 
 
+async def _pod_brief(namespace: str, name: str) -> str:
+    client = k8s.provider.get()
+    pod = await client.pod_detail(namespace, name)
+    events = [e for e in await client.events(namespace, limit=200) if e.object == f"Pod/{name}"]
+    return investigate_pod(pod, events)
+
+
+async def _argo_brief(name: str) -> str:
+    app = next((a for a in await argocd.provider.get().list_apps() if a.name == name), None)
+    if app is None:
+        raise HTTPException(status_code=404, detail=f"no ArgoCD application {name}")
+    return investigate_argo_app(app)
+
+
+async def _alert_brief(fingerprint: str) -> str:
+    try:
+        client = alertmanager.provider.get()
+    except ConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    alert = next((a for a in await client.alerts(include_suppressed=True) if a.fingerprint == fingerprint), None)
+    if alert is None:
+        raise HTTPException(status_code=404, detail=f"no firing alert {fingerprint}; it may have resolved")
+    return investigate_alert(alert)
+
+
+async def _event_brief(namespace: str, ref: str) -> str:
+    """An event about a pod is investigated as that pod; anything else as the event itself."""
+    kind, _, obj = ref.partition("/")
+    if kind == "Pod" and obj:
+        return await _pod_brief(namespace, obj)
+    events = await k8s.provider.get().events(namespace or "all", limit=200)
+    event = next((e for e in events if e.object == ref and e.warning), None)
+    if event is None:
+        raise HTTPException(status_code=404, detail=f"no warning event for {namespace}/{ref}")
+    return (
+        "Investigate this Kubernetes warning event and tell me whether it needs action.\n\n"
+        f"Object: {namespace}/{event.object}\nReason: {event.reason} ×{event.count}\nMessage: {event.message}"
+    )
+
+
 @router.get("/brief", response_model=Brief)
 async def brief(
     kind: Literal["pod", "argo", "alert", "event"] = Query(...),
@@ -249,44 +288,14 @@ async def brief(
 ) -> Brief:
     """The investigation prompt for one problem, ready to send as a chat message."""
     try:
-        if kind == "event":
-            ref_kind, _, obj = name.partition("/")
-            if ref_kind == "Pod" and obj:
-                kind, name = "pod", obj
-            else:
-                events = await k8s.provider.get().events(namespace or "all", limit=200)
-                found = [e for e in events if e.object == name and e.warning]
-                if not found:
-                    raise HTTPException(status_code=404, detail=f"no warning event for {namespace}/{name}")
-                e = found[0]
-                return Brief(
-                    prompt=(
-                        f"Investigate this Kubernetes warning event and tell me whether it needs action.\n\n"
-                        f"Object: {namespace}/{e.object}\nReason: {e.reason} ×{e.count}\nMessage: {e.message}"
-                    )
-                )
-
         if kind == "pod":
-            client = k8s.provider.get()
-            pod = await client.pod_detail(namespace, name)
-            events = [e for e in await client.events(namespace, limit=200) if e.object == f"Pod/{name}"]
-            return Brief(prompt=investigate_pod(pod, events))
-
-        if kind == "argo":
-            app = next((a for a in await argocd.provider.get().list_apps() if a.name == name), None)
-            if app is None:
-                raise HTTPException(status_code=404, detail=f"no ArgoCD application {name}")
-            return Brief(prompt=investigate_argo_app(app))
-
-        alert = next(
-            (a for a in await alertmanager.provider.get().alerts(include_suppressed=True) if a.fingerprint == name),
-            None,
-        )
-        if alert is None:
-            raise HTTPException(status_code=404, detail=f"no firing alert {name}; it may have resolved")
-        return Brief(prompt=investigate_alert(alert))
+            prompt = await _pod_brief(namespace, name)
+        elif kind == "argo":
+            prompt = await _argo_brief(name)
+        elif kind == "alert":
+            prompt = await _alert_brief(name)
+        else:
+            prompt = await _event_brief(namespace, name)
     except UpstreamError as exc:
-        status = getattr(exc, "status", None)
-        raise HTTPException(
-            status_code=status if isinstance(status, int) and status >= 400 else 502, detail=str(exc)
-        ) from exc
+        raise upstream_http_error(exc) from exc
+    return Brief(prompt=prompt)

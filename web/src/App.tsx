@@ -53,7 +53,7 @@ function Shell() {
     <div className="flex h-full flex-col md:flex-row">
       <Sidebar
         items={TABS}
-        active={tab}
+        active={tab === "settings" ? null : tab}
         onSelect={(id) => navigate(id)}
         badges={badges}
         settings={{ active: tab === "settings", onSelect: () => navigate("settings") }}

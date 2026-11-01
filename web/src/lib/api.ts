@@ -3,7 +3,6 @@
 import type {
   ApprovalsOverview,
   Capabilities,
-  LabOverview,
   ModelCatalog,
   PendingApproval,
   RunDetail,
@@ -19,7 +18,6 @@ async function get<T>(path: string): Promise<T> {
 export const api = {
   capabilities: () => get<Capabilities>("/api/capabilities"),
   models: () => get<ModelCatalog>("/api/models"),
-  overview: () => get<LabOverview>("/api/lab/overview"),
   runs: (limit = 50) => get<RunSummary[]>(`/api/runs?limit=${limit}`),
   run: (runId: string) => get<RunDetail>(`/api/runs/${runId}`),
   approvals: () => get<ApprovalsOverview>("/api/approvals"),

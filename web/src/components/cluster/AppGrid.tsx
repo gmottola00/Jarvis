@@ -18,19 +18,18 @@ const POLL_MS = 60_000;
  */
 export function AppGrid() {
   const network = usePolling(() => consoleApi.network(), POLL_MS);
-  const lab = usePolling(api.overview, POLL_MS);
   const delivery = usePolling(consoleApi.delivery, POLL_MS);
   const models = usePolling(api.models, POLL_MS);
 
-  const refreshing = network.refreshing || lab.refreshing || delivery.refreshing || models.refreshing;
-  const refresh = () => [network, lab, delivery, models].forEach((p) => p.refresh());
+  const refreshing = network.refreshing || delivery.refreshing || models.refreshing;
+  const refresh = () => [network, delivery, models].forEach((p) => p.refresh());
   const errors = Object.fromEntries(
-    Object.entries({ network: network.error, argocd: lab.error, delivery: delivery.error, models: models.error }).filter(
+    Object.entries({ network: network.error, delivery: delivery.error, models: models.error }).filter(
       (e): e is [string, string] => Boolean(e[1]),
     ),
   );
 
-  const entries = network.data ? ingressEntries(network.data, lab.data?.apps ?? [], delivery.data?.apps ?? []) : [];
+  const entries = network.data ? ingressEntries(network.data, delivery.data?.apps ?? []) : [];
   const tailnet = entries.map((e) => e.host.split(".").slice(1).join(".")).find(Boolean);
   const gpu = models.data?.gpu;
   const groups = [
@@ -42,7 +41,7 @@ export function AppGrid() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <LiveStamp error={Object.keys(errors).length > 0} every={POLL_MS} at={lab.data?.fetched_at} />
+        <LiveStamp error={Object.keys(errors).length > 0} every={POLL_MS} at={delivery.data?.fetched_at} />
         <span className="font-mono text-[11px] text-ink-500">argocd apps × tailscale ingresses{tailnet ? ` · ${tailnet}` : ""}</span>
         <button
           type="button"
@@ -55,8 +54,7 @@ export function AppGrid() {
       </div>
       {network.loading && <Loading label="listing ingresses…" />}
       <ErrorNote errors={Object.keys(errors).length ? errors : null} />
-      {/* The overview also asks nodes, pods and Alertmanager; only its ArgoCD answer is used here. */}
-      <ErrorNote errors={lab.data?.errors["argocd.apps"] ? { "argocd.apps": lab.data.errors["argocd.apps"] } : null} />
+      {delivery.data && <ErrorNote errors={delivery.data.errors["argocd"] ? { argocd: delivery.data.errors["argocd"] } : null} />}
 
       {network.data && groups.length === 0 && <p className="text-xs text-ink-500">No ingress has ingressClassName tailscale.</p>}
 

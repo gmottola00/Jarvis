@@ -7,7 +7,7 @@
 import type { Tone } from "./derive";
 import type { AppDelivery, IngressView, NetworkView } from "./types";
 import { shortSha, splitImage } from "../format";
-import type { ArgoAppStatus, GpuState } from "../types";
+import type { GpuState } from "../types";
 
 /** Namespaces that run the lab rather than live in it, and what each one is. Anything else is an app. */
 export const PLATFORM: Record<string, string> = {
@@ -48,13 +48,14 @@ function repoName(url: string): string {
   return url.replace(/^(https?:\/\/github\.com\/|git@github\.com:)/, "").replace(/\.git$/, "");
 }
 
-export function ingressEntries(network: NetworkView, argo: ArgoAppStatus[], delivery: AppDelivery[]): Entry[] {
+/** One entry per Tailscale ingress; ArgoCD state and image pins come from the delivery overview. */
+export function ingressEntries(network: NetworkView, delivery: AppDelivery[]): Entry[] {
   return network.ingresses
     .filter((ing) => ing.class_name === "tailscale")
-    .map((ing) => ingressEntry(ing, network, argo.find((a) => a.name === ing.namespace), delivery.find((d) => d.name === ing.namespace)));
+    .map((ing) => ingressEntry(ing, network, delivery.find((d) => d.name === ing.namespace)));
 }
 
-function ingressEntry(ing: IngressView, network: NetworkView, app: ArgoAppStatus | undefined, delivery: AppDelivery | undefined): Entry {
+function ingressEntry(ing: IngressView, network: NetworkView, app: AppDelivery | undefined): Entry {
   const routes = ing.rules.map(parseRule);
   const empty = routes
     .map(([, service]) => network.services.find((s) => s.namespace === ing.namespace && s.name === service))
@@ -69,7 +70,7 @@ function ingressEntry(ing: IngressView, network: NetworkView, app: ArgoAppStatus
   const facts: Fact[] = [];
   if (app?.repo) facts.push({ k: "repo", v: repoName(app.repo) });
   if (app?.path) facts.push({ k: "path", v: app.path });
-  for (const c of delivery?.components ?? []) {
+  for (const c of app?.components ?? []) {
     const { name } = splitImage(c.image);
     const tag = shortSha(c.running_tag || c.git_tag);
     facts.push({ k: c.component.replace(`${ing.namespace}-`, ""), v: `ghcr · ${name}:${tag}`, tone: c.status === "in-sync" ? undefined : c.status === "unknown" ? "idle" : "warn" });

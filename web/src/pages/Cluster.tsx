@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { AppGrid } from "../components/cluster/AppGrid";
-import { EventFeed } from "../components/cluster/EventFeed";
 import { NamespaceFilter } from "../components/cluster/NamespaceFilter";
-import { NetworkMap } from "../components/cluster/NetworkMap";
+import { NamespaceEvents, NamespaceNetwork } from "../components/cluster/NamespacePanels";
 import { NodeCard } from "../components/cluster/NodeCard";
 import { PodDrawer } from "../components/cluster/PodDrawer";
 import { PodTable } from "../components/cluster/PodTable";
-import type { Select, Selection } from "../components/cluster/selection";
+import { refOpener, type Selection } from "../components/cluster/selection";
 import { WorkloadDrawer } from "../components/cluster/WorkloadDrawer";
 import { WorkloadTable } from "../components/cluster/WorkloadTable";
 import { BracketTabs, HudPage, HudPanel, LiveStamp, RefreshButton } from "../components/hud";
 import { ErrorNote, Learn, LearnCommand, Loading } from "../components/ui/primitives";
 import { consoleApi } from "../lib/console/api";
-import { podHealthy, splitRef } from "../lib/console/derive";
+import { podHealthy } from "../lib/console/derive";
 import { kubectl } from "../lib/console/kubectl";
-import type { PodDetail } from "../lib/console/types";
 import { usePolling } from "../lib/hooks/usePolling";
 import { navigate } from "../lib/route";
 
@@ -23,7 +21,6 @@ type Section = (typeof SECTIONS)[number];
 type Inventory = Exclude<Section, "apps">;
 
 const SNAPSHOT_MS = 10_000;
-const DETAIL_MS = 15_000;
 
 /**
  * What runs in the lab, read directly — no model in the loop.
@@ -71,12 +68,6 @@ function InventoryView({ section }: { section: Inventory }) {
   const allPods = data ? inScope(data.pods) : [];
   const pods = problemsOnly ? allPods.filter((p) => !podHealthy(p) || p.restarts > 0) : allPods;
   const workloads = data ? inScope(data.workloads) : [];
-
-  const openRef = (ns: string, ref: string) => {
-    const [kind, name] = splitRef(ref);
-    if (kind === "Pod") setSelection({ kind: "pod", namespace: ns, name });
-    else if (["Deployment", "StatefulSet", "DaemonSet"].includes(kind)) setSelection({ kind: "workload", namespace: ns, name });
-  };
 
   return (
     <div className="space-y-4">
@@ -132,36 +123,13 @@ function InventoryView({ section }: { section: Inventory }) {
         </HudPanel>
       )}
 
-      {data && section === "network" && <Network namespace={namespace} pods={data.pods} onSelect={setSelection} />}
-      {section === "events" && <Events namespace={namespace} onObject={openRef} />}
+      {data && section === "network" && <NamespaceNetwork namespace={namespace} pods={data.pods} onSelect={setSelection} />}
+      {section === "events" && <NamespaceEvents namespace={namespace} onObject={refOpener(setSelection)} />}
 
       {selection?.kind === "pod" && (
         <PodDrawer namespace={selection.namespace} name={selection.name} workloads={data?.workloads ?? []} onSelect={setSelection} />
       )}
       {selection?.kind === "workload" && <WorkloadDrawer namespace={selection.namespace} name={selection.name} onSelect={setSelection} />}
     </div>
-  );
-}
-
-function Network({ namespace, pods, onSelect }: { namespace: string; pods: PodDetail[]; onSelect: Select }) {
-  const network = usePolling(() => consoleApi.network(namespace), DETAIL_MS, namespace);
-  return (
-    <>
-      <Learn topic="service" />
-      {network.loading && <Loading />}
-      <ErrorNote errors={network.error} />
-      {network.data && <NetworkMap network={network.data} pods={pods} onSelect={onSelect} />}
-    </>
-  );
-}
-
-function Events({ namespace, onObject }: { namespace: string; onObject: (ns: string, ref: string) => void }) {
-  const events = usePolling(() => consoleApi.events(namespace, 300), DETAIL_MS, namespace);
-  return (
-    <HudPanel title="Events" note={events.data ? `${events.data.length}` : undefined} topic="events">
-      {events.loading && <Loading />}
-      <ErrorNote errors={events.error} />
-      {events.data && <EventFeed events={events.data} onObject={onObject} showNamespace={namespace === "all"} />}
-    </HudPanel>
   );
 }

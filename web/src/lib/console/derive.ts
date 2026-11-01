@@ -186,3 +186,18 @@ export function exitMeaning(code: number | null, reason = ""): string {
   if (code > 128) return `${code} = 128 + ${code - 128}: killed by signal ${code - 128}.`;
   return `The process exited with ${code}.`;
 }
+
+/**
+ * The pods a workload selects, falling back to the name prefix. Mirrors
+ * `_owned` in the console router, which does the same for log streams.
+ */
+export function podsOf(pods: PodDetail[], w: WorkloadSummary): PodDetail[] {
+  const selector = Object.entries(w.selector);
+  const bySelector = selector.length ? pods.filter((p) => selector.every(([k, v]) => p.labels[k] === v)) : [];
+  return bySelector.length ? bySelector : pods.filter((p) => p.name.startsWith(`${w.name}-`));
+}
+
+/** `tickup-backend` in namespace `tickup` reads as `backend`. */
+export function shortName(workload: string, namespace: string): string {
+  return workload.startsWith(`${namespace}-`) ? workload.slice(namespace.length + 1) : workload;
+}

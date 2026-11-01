@@ -75,12 +75,12 @@ export function LogViewer({ source }: { source: LogSource }) {
   const [attempt, setAttempt] = useState(0);
 
   const target = source.kind === "pod" ? source.pod : source.workload;
-  const url = useMemo(() => {
-    const opts = { container, tail: sinceSeconds ? 5000 : 300, sinceSeconds: sinceSeconds || undefined, probes };
-    return source.kind === "pod"
+  // A plain string: the stream hook reconnects only when it actually changes.
+  const opts = { container, tail: sinceSeconds ? 5000 : 300, sinceSeconds: sinceSeconds || undefined, probes };
+  const url =
+    source.kind === "pod"
       ? logStreamUrl(source.namespace, source.pod, { ...opts, previous })
       : workloadLogStreamUrl(source.namespace, source.workload, opts);
-  }, [source.kind, source.namespace, target, container, sinceSeconds, probes, previous]);
   const { lines, state, error, pods, clear } = useLogStream(url, { paused, attempt });
   const multi = pods.length > 1;
 

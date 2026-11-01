@@ -51,17 +51,6 @@ export interface ArgoAppStatus {
   path: string;
 }
 
-export interface LabOverview {
-  nodes: NodeStatus[];
-  apps: ArgoAppStatus[];
-  unhealthy_pods: PodStatus[];
-  /** Active alerts, heartbeats and silenced ones excluded. */
-  firing_alerts: number;
-  degraded: boolean;
-  errors: Record<string, string>;
-  fetched_at: string;
-}
-
 export interface Capabilities {
   model: string;
   gateway: boolean;

@@ -436,6 +436,7 @@ class AppDelivery(BaseModel):
     sync: str = "Unknown"
     health: str = "Unknown"
     revision: str = ""
+    repo: str = ""
     path: str = ""
     tracking: Literal["kustomize", "helm", "manifests"] = "kustomize"
     """How the app pins what it runs. Only ``kustomize`` apps have image tags to compare."""

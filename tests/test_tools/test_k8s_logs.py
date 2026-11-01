@@ -50,14 +50,61 @@ async def test_chunks_are_recut_on_newlines() -> None:
 
 
 @pytest.mark.parametrize(
-    ("pod", "workload"),
+    ("owner", "workload"),
     [
-        ("tickup-web-8c9d7f6b5-zx8vn", "tickup-web"),
-        ("argocd-application-controller-0", "argocd-application-controller"),
-        ("standalone", "standalone"),
+        ("ReplicaSet/tickup-web-8c9d7f6b5", "tickup-web"),
+        ("StatefulSet/argocd-application-controller", "argocd-application-controller"),
+        ("Job/backup-29123", ""),
+        ("", ""),
     ],
 )
-def test_workload_guess_from_pod_name(pod: str, workload: str) -> None:
+def test_workload_from_owner_reference(owner: str, workload: str) -> None:
     from jarvis.api.routers.status import _workload_of
+    from jarvis.core.console import PodDetail
 
-    assert _workload_of(pod) == workload
+    assert _workload_of(PodDetail(namespace="ns", name="p", phase="Running", owner=owner)) == workload
+
+
+async def _forever(tag: str) -> AsyncIterator[str]:
+    index = 0
+    while True:
+        yield f"{tag}{index}"
+        index += 1
+
+
+async def test_merge_interleaves_and_tags() -> None:
+    from jarvis.api.fetch import merge
+
+    merged = merge({"a": _chunks_text("a1", "a2"), "b": _chunks_text("b1")})
+    items = [item async for item in merged]
+    assert sorted(items) == [("a", "a1"), ("a", "a2"), ("b", "b1")]
+
+
+async def _chunks_text(*items: str) -> AsyncIterator[str]:
+    for item in items:
+        yield item
+
+
+async def test_merge_survives_one_failing_stream() -> None:
+    from jarvis.api.fetch import merge
+
+    async def broken() -> AsyncIterator[str]:
+        yield "x"
+        raise RuntimeError("pod went away")
+
+    items = [item async for item in merge({"ok": _chunks_text("y"), "bad": broken()})]
+    assert ("ok", "y") in items and ("bad", "x") in items
+    assert any(key == "bad" and isinstance(value, RuntimeError) for key, value in items)
+
+
+async def test_closing_merge_with_a_full_buffer_does_not_hang() -> None:
+    """The browser leaving mid-stream: readers are blocked on a full queue and must still stop."""
+    import asyncio
+
+    from jarvis.api.fetch import merge
+
+    merged = merge({"a": _forever("a"), "b": _forever("b")}, buffer=2)
+    first = await anext(merged)
+    assert first[0] in {"a", "b"}
+    await asyncio.sleep(0.01)  # let both readers fill the buffer and block on it
+    await asyncio.wait_for(merged.aclose(), timeout=1)

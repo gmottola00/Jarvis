@@ -54,7 +54,8 @@ export function Sidebar<T extends string>({
   onNewChat,
 }: {
   items: readonly NavItem<T>[];
-  active: string;
+  /** null when the page is not one of `items` (settings). */
+  active: T | null;
   onSelect: (id: T) => void;
   /** A count on an item that needs you: problems on status, waiting approvals on jarvis. */
   badges?: Partial<Record<T, { count: number; tone: "bad" | "warn" }>>;

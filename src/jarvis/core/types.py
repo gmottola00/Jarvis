@@ -246,24 +246,6 @@ class ArgoAppStatus(BaseModel):
     path: str = ""
 
 
-class LabOverview(BaseModel):
-    """Everything the right-hand column of the dashboard needs, in one call."""
-
-    nodes: list[NodeStatus] = Field(default_factory=list)
-    apps: list[ArgoAppStatus] = Field(default_factory=list)
-    unhealthy_pods: list[PodStatus] = Field(default_factory=list)
-    firing_alerts: int = 0
-    """Active alerts, heartbeats and silenced ones excluded."""
-
-    degraded: bool = False
-    """True when anything needs attention — drives the header badge."""
-
-    errors: dict[str, str] = Field(default_factory=dict)
-    """Per-capability failures, so one dead upstream does not blank the page."""
-
-    fetched_at: datetime = Field(default_factory=_now)
-
-
 ProblemKind = Literal["node", "pod", "argo", "alert", "event", "gateway", "approval"]
 
 
@@ -315,7 +297,6 @@ __all__ = [
     "Decision",
     "DoneEvent",
     "ErrorEvent",
-    "LabOverview",
     "Problem",
     "ProblemKind",
     "StatusCounts",

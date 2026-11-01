@@ -86,17 +86,6 @@ class TestHealthAndCapabilities:
         assert usage["k8s__list_nodes"]["errors"] == 0
 
 
-class TestLabOverview:
-    @pytest.mark.script([])
-    async def test_overview_aggregates_capabilities(self, client: httpx.AsyncClient) -> None:
-        body = (await client.get("/api/lab/overview")).json()
-        assert [n["name"] for n in body["nodes"]] == ["um790"]
-        assert {a["name"] for a in body["apps"]} == {"trip-ai", "tickup"}
-        assert body["unhealthy_pods"][0]["reason"] == "ImagePullBackOff"
-        assert body["degraded"] is True
-        assert body["errors"] == {}
-
-
 class TestAlerts:
     async def test_alerts_page(self, client: httpx.AsyncClient) -> None:
         body = (await client.get("/api/alerts")).json()
@@ -113,8 +102,8 @@ class TestAlerts:
     async def test_brief_for_a_resolved_alert_is_404(self, client: httpx.AsyncClient) -> None:
         assert (await client.get("/api/alerts/deadbeef/brief")).status_code == 404
 
-    async def test_overview_counts_firing_alerts(self, client: httpx.AsyncClient) -> None:
-        assert (await client.get("/api/lab/overview")).json()["firing_alerts"] == 3
+    async def test_status_counts_firing_alerts(self, client: httpx.AsyncClient) -> None:
+        assert (await client.get("/api/status")).json()["counts"]["alerts"] == 3
 
     async def test_unconfigured_alertmanager_degrades_one_source(self, client: httpx.AsyncClient, monkeypatch) -> None:
         from jarvis.exceptions import ConfigurationError
@@ -129,9 +118,9 @@ class TestAlerts:
         assert response.status_code == 200
         assert "JARVIS_ALERTMANAGER_URL" in response.json()["errors"]["alertmanager.alerts"]
 
-        overview = (await client.get("/api/lab/overview")).json()
-        assert overview["firing_alerts"] == 0
-        assert "alertmanager.alerts" not in overview["errors"]
+        status = (await client.get("/api/status")).json()
+        assert status["counts"]["alerts"] == 0
+        assert "alertmanager.alerts" not in status["errors"]
 
 
 class TestChat:
@@ -476,3 +465,16 @@ class TestStatus:
             "/api/status/brief", params={"kind": "pod", "namespace": "tickup", "name": "gone-123"}
         )
         assert response.status_code == 404
+
+    @pytest.mark.script([])
+    async def test_alert_brief_without_alertmanager_is_503(self, client: httpx.AsyncClient, monkeypatch) -> None:
+        from jarvis.exceptions import ConfigurationError
+        from jarvis.tools import alertmanager
+
+        def unconfigured() -> None:
+            raise ConfigurationError("alertmanager is not configured: set JARVIS_ALERTMANAGER_URL")
+
+        monkeypatch.setattr(alertmanager.provider, "get", unconfigured)
+        response = await client.get("/api/status/brief", params={"kind": "alert", "name": "59917779b926e5e6"})
+        assert response.status_code == 503
+        assert "JARVIS_ALERTMANAGER_URL" in response.json()["detail"]
