@@ -13,16 +13,19 @@ for one problem, and the page sends it as the first message of a new chat.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from jarvis import gateway
 from jarvis.agent.llm import is_native
 from jarvis.agent.playbooks import investigate_alert, investigate_argo_app, investigate_pod
 from jarvis.api.deps import Services, services
 from jarvis.api.fetch import attempt, upstream_http_error
-from jarvis.core.console import AlertView, EventRecord, PodDetail
+from jarvis.api.routers.gateway import merge_models
+from jarvis.core.console import AlertView, EventRecord, KeyUsage, ModelUsage, PodDetail
 from jarvis.core.types import ArgoAppStatus, NodeStatus, Problem, StatusCounts, StatusView
 from jarvis.exceptions import ConfigurationError, UpstreamError
 from jarvis.tools import alertmanager, argocd, k8s
@@ -174,6 +177,63 @@ def _event_problems(events: list[EventRecord], covered: set[str]) -> list[Proble
     return rows
 
 
+#: A key past this share of its budget is worth a look; at 1.0 LiteLLM starts refusing it.
+BUDGET_WARN = 0.8
+#: A model with at least this many requests in 24h and this failure rate is failing, not unlucky.
+FAILURE_MIN_REQUESTS = 5
+FAILURE_RATE = 0.2
+
+
+async def _gateway_usage() -> tuple[list[KeyUsage], list[ModelUsage]] | None:
+    """Key budgets and the last 24h per model, or None when the gateway view is not configured."""
+    try:
+        client = gateway.provider.get()
+    except ConfigurationError:
+        return None
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    budgets, rows = await asyncio.gather(client.key_budgets(), client.usage(since))
+    return budgets, merge_models(rows)
+
+
+def _budget_problems(keys: list[KeyUsage]) -> list[Problem]:
+    rows = []
+    for k in keys:
+        used = k.budget_used
+        if used is None or used < BUDGET_WARN:
+            continue
+        resets = f" (resets {k.budget_reset_at:%b %d})" if k.budget_reset_at else ""
+        rows.append(
+            Problem(
+                id=f"gateway:budget:{k.alias}",
+                kind="gateway",
+                severity="bad" if used >= 1 else "warn",
+                title=f"{k.alias} at {used:.0%} of its ${k.max_budget:g} budget{resets}",
+                name=k.alias,
+                detail=f"${k.spend:.2f} spent" + (f" per {k.budget_duration}" if k.budget_duration else ""),
+                link="#settings",
+                investigable=False,
+            )
+        )
+    return rows
+
+
+def _model_failure_problems(models: list[ModelUsage]) -> list[Problem]:
+    return [
+        Problem(
+            id=f"gateway:failures:{m.model}",
+            kind="gateway",
+            severity="warn",
+            title=f"{m.model}: {m.failures}/{m.requests} requests failed in 24h",
+            name=m.model,
+            detail="see recent errors in settings",
+            link="#settings",
+            investigable=False,
+        )
+        for m in models
+        if m.requests >= FAILURE_MIN_REQUESTS and m.failures / m.requests > FAILURE_RATE
+    ]
+
+
 def _approval_problems(pending: list[dict[str, Any]]) -> list[Problem]:
     return [
         Problem(
@@ -196,6 +256,8 @@ async def status(svc: Services = Depends(services)) -> StatusView:
     errors: dict[str, str] = {}
     client = k8s.provider.get
 
+    # Started first and awaited last: asyncio.gather is only typed up to six awaitables.
+    llm_task = asyncio.create_task(attempt("litellm", _gateway_usage, errors))
     nodes, pods, apps, alerts, events, gpu = await asyncio.gather(
         attempt("k8s.nodes", lambda: client().list_nodes(), errors),
         attempt("k8s.pods", lambda: client().pod_details("all"), errors),
@@ -204,6 +266,7 @@ async def status(svc: Services = Depends(services)) -> StatusView:
         attempt("k8s.events", lambda: client().events("all", limit=200), errors),
         attempt("models.gpu", svc.models.gpu, errors),
     )
+    llm = await llm_task
     nodes, apps, alerts, events = nodes or [], apps or [], alerts or [], events or []
     pods = [p for p in pods or [] if _needs_look(p)]
     pending = svc.audit.pending()
@@ -224,6 +287,8 @@ async def status(svc: Services = Depends(services)) -> StatusView:
                 investigable=False,
             )
         )
+    if llm is not None:
+        problems += _budget_problems(llm[0]) + _model_failure_problems(llm[1])
     problems += _approval_problems(pending)
     problems.sort(key=lambda p: p.severity != "bad")
 

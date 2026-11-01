@@ -174,6 +174,7 @@ Jarvis starts degraded rather than refusing to boot:
 | `JARVIS_PROMETHEUS_URL` | `prometheus__*` tools return an error naming the variable; the rest of the agent is unaffected |
 | `JARVIS_LOKI_URL` | `loki__*` tools likewise; `k8s__get_logs` still reads live containers |
 | `JARVIS_ALERTMANAGER_URL` | the alerts page shows an error card; the dashboard's alert count is simply left out |
+| `JARVIS_LITELLM_DB_URL` | Settings shows only Jarvis's own budget; no per-app spend, failures or latency, no gateway problems in Status |
 
 ### Models and the LLM gateway
 

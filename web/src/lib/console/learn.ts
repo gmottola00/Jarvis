@@ -152,6 +152,15 @@ export const LESSONS = {
       "the Deployment then rolls out a new ReplicaSet. Git is the only control knob.",
     kubectl: "kubectl -n argocd get applications",
   },
+  gateway: {
+    title: "LiteLLM gateway",
+    body:
+      "Every app calls models through LiteLLM with its own *virtual key*: revocable, with a budget per period. Past the " +
+      "budget the gateway refuses that key until it resets; the real Anthropic key never leaves the gateway. Claude goes " +
+      "through as a pass-through (native API), local/* goes to Ollama on the GPU desktop. These numbers come from " +
+      "LiteLLM's own database through read-only functions that return aggregates — never prompts or keys.",
+    kubectl: "kubectl exec -n litellm litellm-postgres-0 -- psql -U litellm -c 'select * from jarvis_ro.key_budgets()'",
+  },
   alerts: {
     title: "Alerts",
     body:

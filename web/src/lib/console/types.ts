@@ -426,3 +426,61 @@ export interface StatusView {
   errors: Record<string, string>;
   fetched_at: string;
 }
+
+/* --- Gateway (LiteLLM usage) ---------------------------------------------- */
+
+/** One virtual key — one app — with its budget and what it used in the window. */
+export interface KeyUsage {
+  alias: string;
+  /** Spend in the current budget period. */
+  spend: number;
+  max_budget: number | null;
+  budget_duration: string | null;
+  budget_reset_at: string | null;
+  window_spend: number;
+  requests: number;
+  failures: number;
+  /** spend / max_budget; null without a budget. */
+  budget_used: number | null;
+}
+
+export interface ModelUsage {
+  model: string;
+  requests: number;
+  failures: number;
+  spend: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  p50_ms: number | null;
+  p95_ms: number | null;
+  ttft_p50_ms: number | null;
+}
+
+export interface GatewayError {
+  at: string;
+  alias: string;
+  model: string;
+  error_class: string;
+  error_code: string;
+  normalized_error: string;
+  message: string;
+}
+
+export interface DailySpend {
+  day: string;
+  alias: string;
+  spend: number;
+  requests: number;
+  failures: number;
+}
+
+export interface GatewayView {
+  window_hours: number;
+  keys: KeyUsage[];
+  models: ModelUsage[];
+  daily: DailySpend[];
+  errors: GatewayError[];
+  /** Per-source failures; `litellm` alone means the view is not configured. */
+  sources: Record<string, string>;
+  fetched_at: string;
+}

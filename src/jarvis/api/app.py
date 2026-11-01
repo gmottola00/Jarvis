@@ -19,13 +19,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from jarvis import gateway as gateway_usage
 from jarvis.agent.checkpointer import checkpointer
 from jarvis.agent.graph import build_graph
 from jarvis.agent.llm import AnthropicLLM
 from jarvis.agent.models import ModelCatalog
 from jarvis.agent.runner import JarvisRunner
 from jarvis.api.deps import Services
-from jarvis.api.routers import alerts, approvals, chat, console, delivery, health, runs, status
+from jarvis.api.routers import alerts, approvals, chat, console, delivery, gateway, health, runs, status
 from jarvis.core.policy import PolicyGate
 from jarvis.logging import configure_logging, get_logger
 from jarvis.memory.session import build_session_store
@@ -101,6 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
     await close_capabilities()
+    await gateway_usage.provider.aclose()
     await sessions.aclose()
     if pool is not None:
         await pool.close()
@@ -135,7 +137,7 @@ def create_app(*, llm: Any = None) -> FastAPI:
         allow_headers=["*"],
     )
     # The console routers come before the SPA mount, which claims everything else.
-    for module in (health, chat, approvals, status, runs, console, delivery, alerts):
+    for module in (health, chat, approvals, status, runs, console, delivery, alerts, gateway):
         app.include_router(module.router)
 
     _mount_spa(app)

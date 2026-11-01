@@ -108,3 +108,18 @@ async def test_closing_merge_with_a_full_buffer_does_not_hang() -> None:
     assert first[0] in {"a", "b"}
     await asyncio.sleep(0.01)  # let both readers fill the buffer and block on it
     await asyncio.wait_for(merged.aclose(), timeout=1)
+
+
+def test_merged_percentiles_are_request_weighted() -> None:
+    from jarvis.api.routers.gateway import merge_models
+    from jarvis.core.console import UsageRow
+
+    rows = [
+        UsageRow(alias="a", model="m", requests=3, failures=1, spend=0.3, p50_ms=100),
+        UsageRow(alias="b", model="m", requests=1, failures=0, spend=0.1, p50_ms=500, ttft_p50_ms=50),
+    ]
+    [model] = merge_models(rows)
+    assert model.requests == 4 and model.failures == 1 and model.spend == pytest.approx(0.4)
+    assert model.p50_ms == pytest.approx(200)
+    assert model.ttft_p50_ms == pytest.approx(50)
+    assert model.p95_ms is None

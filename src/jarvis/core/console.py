@@ -16,10 +16,10 @@ Mirrored by hand in ``web/src/lib/console.ts``. Change one, change the other.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 def _now() -> datetime:
@@ -530,6 +530,94 @@ class AlertsOverview(BaseModel):
 WorkloadDetail.model_rebuild()
 
 
+# ============================================================================
+# Gateway (LiteLLM usage)
+# ============================================================================
+
+
+class KeyUsage(BaseModel):
+    """One virtual key — one app — with its budget and what it used in the window."""
+
+    alias: str
+    spend: float = 0.0
+    """Spend in the current budget period, as LiteLLM tracks it."""
+
+    max_budget: float | None = None
+    budget_duration: str | None = None
+    budget_reset_at: datetime | None = None
+    window_spend: float = 0.0
+    requests: int = 0
+    failures: int = 0
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def budget_used(self) -> float | None:
+        """Fraction of the budget spent, None without a budget."""
+        return self.spend / self.max_budget if self.max_budget else None
+
+
+class ModelUsage(BaseModel):
+    """One model across every key, in the window."""
+
+    model: str
+    requests: int = 0
+    failures: int = 0
+    spend: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    p50_ms: float | None = None
+    p95_ms: float | None = None
+    ttft_p50_ms: float | None = None
+    """Median time to the first token, successful streamed calls only."""
+
+
+class GatewayError(BaseModel):
+    at: datetime
+    alias: str = ""
+    model: str = ""
+    error_class: str = ""
+    error_code: str = ""
+    normalized_error: str = ""
+    message: str = ""
+
+
+class DailySpend(BaseModel):
+    day: date
+    alias: str
+    spend: float = 0.0
+    requests: int = 0
+    failures: int = 0
+
+
+class UsageRow(BaseModel):
+    """One (key, model) row as ``jarvis_ro.usage`` returns it."""
+
+    alias: str
+    model: str
+    requests: int = 0
+    failures: int = 0
+    spend: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    p50_ms: float | None = None
+    p95_ms: float | None = None
+    ttft_p50_ms: float | None = None
+
+
+class GatewayView(BaseModel):
+    """What the gateway did: per app, per model, per day, and what failed."""
+
+    window_hours: int
+    keys: list[KeyUsage] = Field(default_factory=list)
+    models: list[ModelUsage] = Field(default_factory=list)
+    daily: list[DailySpend] = Field(default_factory=list)
+    errors: list[GatewayError] = Field(default_factory=list)
+    sources: dict[str, str] = Field(default_factory=dict)
+    """Per-source failures (``litellm.usage``…), so one broken function costs one panel."""
+
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 __all__ = [
     "AlertView",
     "AlertsOverview",
@@ -557,4 +645,10 @@ __all__ = [
     "WorkloadDetail",
     "WorkloadSummary",
     "age_seconds",
+    "DailySpend",
+    "GatewayError",
+    "GatewayView",
+    "KeyUsage",
+    "ModelUsage",
+    "UsageRow",
 ]
