@@ -108,6 +108,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 **audit.hooks(),
             )
             runner = AgentRunner(graph=graph, sessions=sessions, audit=audit)
+            # The audit log came back from Postgres; the checkpointer knows which runs still wait.
+            await runner.restore_pending()
 
         app.state.services = Services(
             settings=settings,
@@ -131,6 +133,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             notify=notifier.available,
         )
         yield
+        if runner is not None:
+            await runner.aclose()
 
     await close_capabilities()
     await gateway_usage.provider.aclose()

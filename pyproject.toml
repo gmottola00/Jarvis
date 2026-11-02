@@ -10,7 +10,7 @@ authors = [{ name = "Gianmarco Mottola", email = "gianmarcomottola00@gmail.com" 
 dependencies = [
     # The agent loop, approvals, sessions, audit and the SSE layer. Locally,
     # `make quaerium-dev` swaps in the editable checkout at ../Quaerium.
-    "quaerium[agents,server]>=0.4,<0.5",
+    "quaerium[agents,server]>=0.4.1,<0.5",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
@@ -22,8 +22,8 @@ dependencies = [
 [project.optional-dependencies]
 # Backing stores. Without these Jarvis falls back to in-process memory,
 # which is enough to develop and test the whole graph but loses state on restart.
-postgres = ["quaerium[agents-postgres]>=0.4,<0.5"]
-redis = ["quaerium[agents-redis]>=0.4,<0.5"]
+postgres = ["quaerium[agents-postgres]>=0.4.1,<0.5"]
+redis = ["quaerium[agents-redis]>=0.4.1,<0.5"]
 k8s = ["kubernetes-asyncio>=31.1.0"]
 dev = [
     "pytest>=8.0.0",
