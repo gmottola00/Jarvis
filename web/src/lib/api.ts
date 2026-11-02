@@ -15,6 +15,27 @@ async function get<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** A write. Throws with the backend's `detail` so the message can be shown as is. */
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method,
+    headers: { accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!response.ok) {
+    let detail = `HTTP ${response.status}`;
+    try {
+      const data = (await response.json()) as { detail?: unknown };
+      if (typeof data.detail === "string") detail = data.detail;
+    } catch {
+      /* not JSON: keep the status */
+    }
+    throw new Error(detail);
+  }
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
 export const api = {
   capabilities: () => get<Capabilities>("/api/capabilities"),
   models: () => get<ModelCatalog>("/api/models"),
@@ -34,6 +55,12 @@ export const api = {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return ((await response.json()) as { session_id: string }).session_id;
   },
+
+  pushKey: async () => (await get<{ key: string }>("/api/push/key")).key,
+  putSubscription: (subscription: PushSubscriptionJSON & { label?: string }) =>
+    send<void>("PUT", "/api/push/subscription", subscription),
+  deleteSubscription: (endpoint: string) => send<void>("DELETE", "/api/push/subscription", { endpoint }),
+  testPush: () => send<{ sent: number; failed: number; removed: number }>("POST", "/api/push/test"),
 };
 
 /**

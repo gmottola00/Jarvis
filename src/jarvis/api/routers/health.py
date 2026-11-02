@@ -40,6 +40,7 @@ async def capabilities(svc: Services = Depends(services)) -> dict[str, Any]:
         "llm_ready": svc.llm_ready,
         "fake_tools": svc.settings.fake_tools,
         "durable": bool(svc.settings.database_url),
+        "notify": svc.notifier.available,
         "policy": {
             "read": "auto",
             "write": "confirm" if svc.policy.confirm_writes else "auto (pull request)",

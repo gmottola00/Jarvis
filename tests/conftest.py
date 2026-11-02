@@ -17,6 +17,8 @@ os.environ.setdefault("JARVIS_FAKE_TOOLS", "true")
 # .env pointing at a live LiteLLM must not turn the suite into network calls.
 os.environ.setdefault("JARVIS_LLM_GATEWAY_URL", "")
 os.environ.setdefault("JARVIS_OLLAMA_URL", "")
+# Same for notify-hub: no test may push to a real phone.
+os.environ["JARVIS_NOTIFY_URL"] = ""
 
 from jarvis import gateway  # noqa: E402
 from jarvis.agent.llm import ScriptedLLM  # noqa: E402
