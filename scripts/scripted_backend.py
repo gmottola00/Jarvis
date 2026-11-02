@@ -14,9 +14,10 @@ import os
 
 os.environ.setdefault("JARVIS_FAKE_TOOLS", "true")
 
-from jarvis.agent.llm import ScriptedLLM  # noqa: E402
+from quaerium.agents import RiskLevel  # noqa: E402
+from quaerium.agents.testing import ScriptedLLM  # noqa: E402
+
 from jarvis.api.app import create_app  # noqa: E402
-from jarvis.core.types import RiskLevel  # noqa: E402
 
 SCRIPT = [
     ScriptedLLM.call_many([("argocd__list_apps", {}), ("k8s__list_pods", {"only_unhealthy": True})]),

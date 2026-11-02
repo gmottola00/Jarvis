@@ -16,20 +16,23 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from quaerium.agents import ClientProvider, RiskLevel, ToolSpec, tool
+
 from jarvis.core.kustomize import parse_images, parse_replicas
 from jarvis.core.kustomize import set_replicas as edit_replicas
-from jarvis.core.types import RiskLevel
-from jarvis.settings import get_settings
-from jarvis.tools.base import ToolSpec, tool
+from jarvis.settings import Settings, get_settings
+from jarvis.tools.fakes import FAKE_HINT, use_fake
 from jarvis.tools.github.client import GitHubClient
 from jarvis.tools.github.fake import FakeGitHubClient
-from jarvis.tools.provider import ClientProvider
 
-provider: ClientProvider[Any] = ClientProvider(
+provider: ClientProvider[Settings, Any] = ClientProvider(
     name="github",
+    settings=get_settings,
     real=lambda s: GitHubClient(s),
     fake=FakeGitHubClient,
+    use_fake=use_fake,
     requires=lambda s: [] if s.github_token else ["JARVIS_GITHUB_TOKEN"],
+    hint=FAKE_HINT,
 )
 
 

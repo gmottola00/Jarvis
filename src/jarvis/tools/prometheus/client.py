@@ -13,9 +13,9 @@ from datetime import datetime
 from typing import Any
 
 import httpx
+from quaerium.agents import get_logger
 
 from jarvis.exceptions import UpstreamError
-from jarvis.logging import get_logger
 from jarvis.settings import Settings
 
 logger = get_logger(__name__)

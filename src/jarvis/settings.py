@@ -135,8 +135,8 @@ class Settings(BaseSettings):
 
     @property
     def has_anthropic(self) -> bool:
-        """Whether a model call can be made at all."""
-        return self.anthropic_api_key is not None
+        """Whether a model call can be made at all. An empty key counts as none."""
+        return self.anthropic_api_key is not None and bool(self.anthropic_api_key.get_secret_value().strip())
 
 
 @lru_cache(maxsize=1)

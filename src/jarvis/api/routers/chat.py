@@ -6,11 +6,11 @@ from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from quaerium.agents import ErrorEvent, ModelUnavailableEvent, new_id
+from quaerium.agents.server import stream
 
 from jarvis.agent.models import ModelUnavailableError, UnknownModelError
 from jarvis.api.deps import Services, services
-from jarvis.api.sse import stream
-from jarvis.core.types import ErrorEvent, ModelUnavailableEvent, new_id
 
 router = APIRouter(prefix="/api", tags=["chat"])
 

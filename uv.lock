@@ -659,14 +659,11 @@ name = "jarvis"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "anthropic" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "langgraph" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "sse-starlette" },
-    { name = "structlog" },
+    { name = "quaerium", extra = ["agents", "server"] },
     { name = "tenacity" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -674,9 +671,7 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "kubernetes-asyncio" },
-    { name = "langgraph-checkpoint-postgres" },
-    { name = "psycopg", extra = ["binary", "pool"] },
-    { name = "redis" },
+    { name = "quaerium", extra = ["agents-postgres", "agents-redis"] },
 ]
 dev = [
     { name = "black" },
@@ -691,35 +686,30 @@ k8s = [
     { name = "kubernetes-asyncio" },
 ]
 postgres = [
-    { name = "langgraph-checkpoint-postgres" },
-    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "quaerium", extra = ["agents-postgres"] },
 ]
 redis = [
-    { name = "redis" },
+    { name = "quaerium", extra = ["agents-redis"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.75.0" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.10.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.13.0" },
     { name = "jarvis", extras = ["postgres", "redis", "k8s"], marker = "extra == 'all'" },
     { name = "kubernetes-asyncio", marker = "extra == 'k8s'", specifier = ">=31.1.0" },
-    { name = "langgraph", specifier = ">=0.2.60" },
-    { name = "langgraph-checkpoint-postgres", marker = "extra == 'postgres'", specifier = ">=2.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
-    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres'", specifier = ">=3.2.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "redis", marker = "extra == 'redis'", specifier = ">=5.2.0" },
+    { name = "quaerium", extras = ["agents", "server"], specifier = ">=0.4.1,<0.5" },
+    { name = "quaerium", extras = ["agents-postgres"], marker = "extra == 'postgres'", specifier = ">=0.4.1,<0.5" },
+    { name = "quaerium", extras = ["agents-redis"], marker = "extra == 'redis'", specifier = ">=0.4.1,<0.5" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
-    { name = "sse-starlette", specifier = ">=2.1.0" },
-    { name = "structlog", specifier = ">=24.4.0" },
     { name = "tenacity", specifier = ">=9.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
 ]
@@ -1626,6 +1616,46 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/de/94/980b50a6531b3019e45ddeada0626d45fa85cbe22300844a7983285bed3b/pyyaml-6.0.3-cp313-cp313-win32.whl", hash = "sha256:d0eae10f8159e8fdad514efdc92d74fd8d682c933a6dd088030f3834bc8e6b26", size = 137427, upload-time = "2025-09-25T21:32:32.58Z" },
     { url = "https://files.pythonhosted.org/packages/97/c9/39d5b874e8b28845e4ec2202b5da735d0199dbe5b8fb85f91398814a9a46/pyyaml-6.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c", size = 154090, upload-time = "2025-09-25T21:32:33.659Z" },
     { url = "https://files.pythonhosted.org/packages/73/e8/2bdf3ca2090f68bb3d75b44da7bbc71843b19c9f2b9cb9b0f4ab7a5a4329/pyyaml-6.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:5498cd1645aa724a7c71c8f378eb29ebe23da2fc0d7a08071d89469bf1d2defb", size = 140246, upload-time = "2025-09-25T21:32:34.663Z" },
+]
+
+[[package]]
+name = "quaerium"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/25/11/22843c277cdb0529ff06bed46ba6090c6405e38492e1b4eeba83bcc321b9/quaerium-0.4.1.tar.gz", hash = "sha256:44f53ec578603ebafc3e0c9b46eaf755134d67447932301ee25617b1f865517f", size = 136781, upload-time = "2026-11-02T01:23:33.674Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/61/0ed871e3e5286565674809b2686ed50b094d66564e10fcb7b865d997a3c1/quaerium-0.4.1-py3-none-any.whl", hash = "sha256:1d2919c6aeeeefd554d5f685fb614f438c31888ad3ae9a05e2e6117b27faf765", size = 191447, upload-time = "2026-11-02T01:23:32.255Z" },
+]
+
+[package.optional-dependencies]
+agents = [
+    { name = "anthropic" },
+    { name = "langgraph" },
+    { name = "structlog" },
+]
+agents-postgres = [
+    { name = "anthropic" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "structlog" },
+]
+agents-redis = [
+    { name = "anthropic" },
+    { name = "langgraph" },
+    { name = "redis" },
+    { name = "structlog" },
+]
+server = [
+    { name = "anthropic" },
+    { name = "fastapi" },
+    { name = "langgraph" },
+    { name = "sse-starlette" },
+    { name = "structlog" },
 ]
 
 [[package]]

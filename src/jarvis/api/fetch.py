@@ -10,8 +10,7 @@ import asyncio
 from typing import AsyncIterator, Awaitable, Callable, Mapping, TypeVar
 
 from fastapi import HTTPException
-
-from jarvis.logging import get_logger
+from quaerium.agents import get_logger
 
 logger = get_logger(__name__)
 

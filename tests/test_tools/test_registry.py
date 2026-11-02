@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from quaerium.agents import RiskLevel, ToolCall
 
-from jarvis.core.types import RiskLevel, ToolCall
 from jarvis.exceptions import ToolNotFoundError
 
 

@@ -12,6 +12,8 @@ import asyncio
 import codecs
 from typing import Any, AsyncIterator
 
+from quaerium.agents import get_logger
+
 from jarvis.core.console import (
     EventRecord,
     MetricsView,
@@ -25,7 +27,6 @@ from jarvis.core.console import (
 )
 from jarvis.core.types import NodeStatus, PodStatus
 from jarvis.exceptions import UpstreamError
-from jarvis.logging import get_logger
 from jarvis.settings import Settings
 from jarvis.tools.k8s.convert import (
     sanitize_manifest,
