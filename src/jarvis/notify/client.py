@@ -24,8 +24,8 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 import httpx
+from quaerium.agents import get_logger
 
-from jarvis.logging import get_logger
 from jarvis.settings import Settings
 
 logger = get_logger(__name__)

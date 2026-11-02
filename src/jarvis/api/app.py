@@ -38,6 +38,7 @@ from jarvis.agent.prompts import ROUTER_SYSTEM, build_system
 from jarvis.api.deps import Services, services
 from jarvis.api.routers import alerts, chat, console, delivery, gateway, health, push, status
 from jarvis.notify import Notifier, build_notifier
+from jarvis.notify.approvals import notify_approval
 from jarvis.settings import Settings, get_settings
 from jarvis.tools import build_registry, close_capabilities
 
@@ -107,7 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 checkpointer=saver,
                 **audit.hooks(),
             )
-            runner = AgentRunner(graph=graph, sessions=sessions, audit=audit)
+            runner = AgentRunner(graph=graph, sessions=sessions, audit=audit, on_suspend=notify_approval(notifier))
             # The audit log came back from Postgres; the checkpointer knows which runs still wait.
             await runner.restore_pending()
 
