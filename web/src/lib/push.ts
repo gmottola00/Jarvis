@@ -40,6 +40,17 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
   return (await navigator.serviceWorker.getRegistration()) ?? null;
 }
 
+/**
+ * The registration, waiting a moment for it on the first visit: the worker is
+ * registered on `load`, and the sheet can be opened before that has finished.
+ */
+async function readyRegistration(ms = 3000): Promise<ServiceWorkerRegistration | null> {
+  const now = await registration();
+  if (now || !("serviceWorker" in navigator) || !import.meta.env.PROD) return now;
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+  return Promise.race([navigator.serviceWorker.ready, timeout]);
+}
+
 async function currentSubscription(): Promise<PushSubscription | null> {
   const reg = await registration();
   return reg ? reg.pushManager.getSubscription() : null;
@@ -47,7 +58,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
 
 export async function pushState(): Promise<PushState> {
   if (isIos() && !isStandalone()) return "needs-home-screen";
-  if (!supported() || !(await registration())) return "unsupported";
+  if (!supported() || !(await readyRegistration())) return "unsupported";
   if (Notification.permission === "denied") return "denied";
   return (await currentSubscription()) ? "on" : "off";
 }

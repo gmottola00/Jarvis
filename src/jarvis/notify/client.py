@@ -158,6 +158,8 @@ class HubNotifier:
             raise NotifyError("The notification service is not responding.") from exc
         if response.status_code == 401:
             raise NotifyError("The notification service does not recognise Jarvis: check NOTIFY_TOKEN.")
+        if response.status_code == 409:
+            raise NotifyError("This device is registered with the notification service by another app.")
         if response.status_code == 422:
             raise NotifyError("The notification service rejected the request.")
         if response.is_error:

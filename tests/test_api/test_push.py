@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any, AsyncIterator
 
@@ -73,6 +72,24 @@ async def test_hub_down_is_502(fake: FakeHub, client: httpx.AsyncClient) -> None
     assert (await client.post("/api/push/test")).status_code == 502
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    ["http://web.push.apple.com/x", "https://169.254.169.254/latest", "https://evil.example/web.push.apple.com"],
+)
+async def test_subscribe_refuses_what_is_not_a_push_service(
+    client: httpx.AsyncClient, fake: FakeHub, endpoint: str
+) -> None:
+    r = await client.put("/api/push/subscription", json={**SUB, "endpoint": endpoint})
+    assert r.status_code == 422
+    assert fake.requests == []
+
+
+async def test_endpoint_of_another_app_is_explained(fake: FakeHub, client: httpx.AsyncClient) -> None:
+    fake.status = 409
+    r = await client.put("/api/push/subscription", json=SUB)
+    assert r.status_code == 502 and "another app" in r.json()["detail"]
+
+
 async def test_off_is_503(off: httpx.AsyncClient) -> None:
     assert (await off.get("/api/capabilities")).json()["notify"] is False
     assert (await off.get("/api/push/key")).status_code == 503
@@ -106,8 +123,8 @@ async def test_a_suspended_run_pushes_once() -> None:
         events = await read_sse(http, "/api/chat", {"session_id": session, "message": "merge PR 12"})
         assert names(events)[-1] == "approval_required"
         run_id = events[-1][1]["run_id"]
-        await asyncio.sleep(0)  # the push runs in the background
 
+    # Leaving the lifespan awaits runner.aclose(), which waits for the background push.
     (push,) = notifier.sent
     assert push["title"] == "Approval needed"
     assert push["body"].startswith("github__merge_pr")
@@ -122,5 +139,4 @@ async def test_a_finished_run_does_not_push() -> None:
         session = (await http.post("/api/sessions")).json()["session_id"]
         events = await read_sse(http, "/api/chat", {"session_id": session, "message": "hi"})
         assert names(events)[-1] == "done"
-        await asyncio.sleep(0)
     assert notifier.sent == []

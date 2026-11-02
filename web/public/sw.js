@@ -78,7 +78,9 @@ async function staleWhileRevalidate(request) {
   const cached = await cache.match(request);
   const network = fetch(request)
     .then((response) => {
-      if (response.ok || response.type === "opaque") cache.put(request, response.clone());
+      if (response.ok || response.type === "opaque") {
+        cache.put(request, response.clone()).then(() => trim(cache));
+      }
       return response;
     })
     .catch(() => cached);
@@ -117,9 +119,13 @@ self.addEventListener("notificationclick", (event) => {
   const target = new URL(event.notification.data?.url || "/", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
-      if (open) return open.focus().then((w) => (w ?? open).navigate(target));
-      return self.clients.openWindow(target);
+      // navigate() works only on a window this worker controls; any other one gets a new window.
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin && "navigate" in w);
+      if (!open) return self.clients.openWindow(target);
+      return open
+        .focus()
+        .then((w) => (w ?? open).navigate(target))
+        .catch(() => self.clients.openWindow(target));
     }),
   );
 });
