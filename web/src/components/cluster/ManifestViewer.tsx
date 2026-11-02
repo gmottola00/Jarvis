@@ -14,7 +14,7 @@ export function ManifestViewer({ kind, namespace, name }: { kind: ManifestKind; 
   const yaml = useMemo(() => (data ? toYaml(data) : ""), [data]);
 
   return (
-    <div className="space-y-3 px-5 py-4">
+    <div className="space-y-3 px-4 sm:px-5 py-4">
       <Learn topic="manifest" />
       {loading && <Loading label="reading from the API server…" />}
       <ErrorNote errors={error} />

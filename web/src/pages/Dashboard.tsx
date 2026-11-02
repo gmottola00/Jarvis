@@ -267,7 +267,7 @@ export function Dashboard() {
         <HudBackdrop />
 
         {llmDown && (
-          <p className="relative border-b border-amber-500/25 bg-amber-500/5 px-5 py-2 text-xs text-amber-300">
+          <p className="relative border-b border-amber-500/25 bg-amber-500/5 px-4 sm:px-5 py-2 text-xs text-amber-300">
             ANTHROPIC_API_KEY is not set — chat is disabled. The lab page still works.
           </p>
         )}

@@ -122,7 +122,7 @@ export function AppDetail({ name, tab: rawTab, component }: { name: string; tab?
 
       {tab === "pods" && (
         <HudPanel title="Pods" topic="pod" flush>
-          <div className="px-5">
+          <div className="px-4 sm:px-5">
             <LearnCommand command={kubectl.appPods(name)} />
           </div>
           {pods.loading && <Loading />}

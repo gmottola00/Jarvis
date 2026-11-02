@@ -51,7 +51,7 @@ export function PushSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
   return (
     <Drawer open={open} onClose={onClose} eyebrow="notifications" title={state === "on" ? "On" : "Alerts on this device"}>
-      <div className="space-y-4 px-5 py-4 text-sm text-ink-300">
+      <div className="space-y-4 px-4 sm:px-5 py-4 text-sm text-ink-300">
         <p>{state === null ? "One moment…" : TEXT[state]}</p>
         {message && <p className="font-mono text-xs text-ultron-300">{message}</p>}
         <div className="flex flex-wrap gap-2">

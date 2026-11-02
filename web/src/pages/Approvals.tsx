@@ -88,7 +88,7 @@ export function Approvals() {
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <HudCard eyebrow="gate" title="Pending" note={`${pending.length} waiting`}>
-              <div className="flex flex-col gap-3.5 px-6 pt-3 pb-5.5">
+              <div className="flex flex-col gap-3.5 px-4 sm:px-6 pt-3 pb-5.5">
                 {pending.length === 0 ? (
                   <p className="flex items-center gap-2.5 border border-dashed border-ink-800 px-4 py-7 font-mono text-xs text-emerald-300">
                     <GlowDot tone="ok" size="sm" />
@@ -103,13 +103,13 @@ export function Approvals() {
             <div className="min-w-0 space-y-4">
               <HudPanel title="decided" note="audit log" flush>
                 {decided.length === 0 ? (
-                  <p className="px-5 py-3.5 text-xs text-ink-500">No decisions yet.</p>
+                  <p className="px-4 sm:px-5 py-3.5 text-xs text-ink-500">No decisions yet.</p>
                 ) : (
                   <ul>
                     {decided.map((d) => {
                       const tone = d.approved ? "ok" : "bad";
                       return (
-                        <li key={`${d.run_id}:${d.decided_at}`} className="flex flex-col gap-1 border-b border-ink-850 px-5 py-2.5">
+                        <li key={`${d.run_id}:${d.decided_at}`} className="flex flex-col gap-1 border-b border-ink-850 px-4 sm:px-5 py-2.5">
                           <p className="flex items-center gap-2 font-mono text-[11px]">
                             <GlowDot tone={tone} size="sm" />
                             <span className={`tracking-[0.1em] uppercase ${TONE[tone].text}`}>{d.approved ? "approved" : "declined"}</span>

@@ -40,17 +40,23 @@ export function HudPage({
     <div className="relative h-full">
       <HudBackdrop />
       <div className="relative h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-3 pt-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:space-y-6 sm:px-8 sm:pt-6">
+          {/* On a phone the top bar already carries the core: the title starts
+              the page, and the status line and actions share one row under it. */}
           <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <UltronCore size={44} live={live} />
-            <div className="min-w-0">
-              <h2 className="glow-red font-display text-3xl leading-none font-bold tracking-[0.35em] text-ultron-400 uppercase">{title}</h2>
-              {subtitle && <p className="mt-1.5 text-xs text-ink-500">{subtitle}</p>}
+            <span className="hidden sm:block">
+              <UltronCore size={44} live={live} />
+            </span>
+            <div className="min-w-0 flex-1 sm:flex-none">
+              <h2 className="glow-red font-display text-2xl leading-none font-bold tracking-[0.25em] [overflow-wrap:anywhere] text-ultron-400 uppercase sm:text-3xl sm:tracking-[0.35em]">
+                {title}
+              </h2>
+              {subtitle && <p className="mt-1.5 text-xs text-pretty text-ink-500">{subtitle}</p>}
             </div>
             {(status || actions) && (
-              <div className="ml-auto flex flex-col items-end gap-2">
+              <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 sm:ml-auto sm:w-auto sm:flex-col sm:items-end">
                 {status}
-                {actions && <div className="flex flex-wrap justify-end gap-2">{actions}</div>}
+                {actions && <div className="ml-auto flex flex-wrap justify-end gap-2 sm:ml-0">{actions}</div>}
               </div>
             )}
           </header>

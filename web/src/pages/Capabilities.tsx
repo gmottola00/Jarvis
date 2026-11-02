@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BracketTabs, GlowDot, HudCard, HudPage, HudPanel, Leader, LiveStamp, Quiet, Readouts, RefreshButton, type Readout } from "../components/hud";
 import { RISK_TONE } from "../components/runs/status";
 import { ErrorNote, Loading } from "../components/ui/primitives";
@@ -17,7 +17,8 @@ const RISKS: RiskLevel[] = ["read", "write", "destructive"];
 const NONE: ToolUsage = { calls: 0, errors: 0, p50_ms: 0, last_at: "" };
 
 /** Columns shared by the header row and every tool row. */
-const COLUMNS = "grid grid-cols-[minmax(0,1fr)_6.5rem_7.5rem_3rem_3.5rem] items-center gap-3";
+/** Narrow: tool, risk and the call count; the bar, errors and p50 join from `lg`. */
+const COLUMNS = "grid grid-cols-[minmax(0,1fr)_auto_2rem] items-center gap-3 lg:grid-cols-[minmax(0,1fr)_6.5rem_7.5rem_3rem_3.5rem]";
 
 /**
  * Every tool the model is given, grouped by capability, with what the gate does
@@ -28,6 +29,15 @@ export function Capabilities() {
   const { data, error, loading, refresh, refreshing } = usePolling(api.capabilities, POLL_MS);
   const [filter, setFilter] = useState<Filter>("all");
   const [picked, setPicked] = useState<string | null>(null);
+  const detail = useRef<HTMLDivElement>(null);
+
+  /** Below xl the detail sits under the whole list: bring it up, or a tap seems to do nothing. */
+  function pick(name: string) {
+    setPicked(name);
+    if (!window.matchMedia("(min-width: 80rem)").matches) {
+      requestAnimationFrame(() => detail.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }
 
   const all = data ? namespaces(data).flatMap(([, tools]) => tools) : [];
   const usage = (tool: ToolInfo) => data?.usage[tool.name] ?? NONE;
@@ -85,13 +95,16 @@ export function Capabilities() {
                     }
                     flush
                   >
-                    {source?.about && <p className="px-5 pt-2.5 text-xs text-ink-500">{source.about}.</p>}
-                    <div className={`${COLUMNS} px-5 pt-2 pb-1.5 font-mono text-[9.5px] font-medium tracking-[0.18em] text-ink-600`}>
+                    {source?.about && <p className="px-4 sm:px-5 pt-2.5 text-xs text-ink-500">{source.about}.</p>}
+                    <div className={`${COLUMNS} px-4 pt-2 pb-1.5 font-mono sm:px-5 text-[9.5px] font-medium tracking-[0.18em] text-ink-600`}>
                       <span>TOOL</span>
                       <span>RISK</span>
-                      <span>CALLS {data.usage_days}D</span>
-                      <span className="text-right">ERR</span>
-                      <span className="text-right">P50</span>
+                      <span className="text-right lg:text-left">
+                        <span className="lg:hidden">{data.usage_days}D</span>
+                        <span className="hidden lg:inline">CALLS {data.usage_days}D</span>
+                      </span>
+                      <span className="hidden text-right lg:block">ERR</span>
+                      <span className="hidden text-right lg:block">P50</span>
                     </div>
                     {shown.map((tool) => (
                       <ToolRow
@@ -100,7 +113,7 @@ export function Capabilities() {
                         usage={usage(tool)}
                         most={most}
                         selected={tool.name === selected.name}
-                        onSelect={() => setPicked(tool.name)}
+                        onSelect={() => pick(tool.name)}
                       />
                     ))}
                   </HudPanel>
@@ -108,7 +121,7 @@ export function Capabilities() {
               })}
             </div>
 
-            <div className="min-w-0 space-y-4 xl:sticky xl:top-0">
+            <div ref={detail} className="min-w-0 scroll-mt-4 space-y-4 xl:sticky xl:top-0">
               <ToolDetail tool={selected} usage={usage(selected)} policy={data.policy} days={data.usage_days} />
               <Policy capabilities={data} />
             </div>
@@ -184,7 +197,7 @@ function ToolRow({
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`${COLUMNS} w-full border-t border-l-2 border-t-ink-850 py-2.5 pr-5 pl-[18px] text-left hover:bg-ultron-500/7 ${edge}`}
+      className={`${COLUMNS} w-full border-t border-l-2 border-t-ink-850 py-2.5 pr-4 pl-[14px] text-left sm:pr-5 sm:pl-[18px] hover:bg-ultron-500/7 ${edge}`}
     >
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-[13px] font-medium text-ink-200">{verb(tool.name)}</span>
@@ -194,13 +207,13 @@ function ToolRow({
       </span>
       <RiskChip risk={tool.risk} />
       <span className="flex items-center gap-2">
-        <span className="h-1 flex-1 bg-ink-850">
+        <span className="hidden h-1 flex-1 bg-ink-850 lg:block">
           <span className="block h-full bg-ultron-500/75" style={{ width: `${Math.round((usage.calls / most) * 100)}%` }} />
         </span>
-        <span className="w-7 text-right font-mono text-xs text-ink-300">{usage.calls}</span>
+        <span className="ml-auto w-7 text-right font-mono text-xs text-ink-300">{usage.calls}</span>
       </span>
-      <span className={`text-right font-mono text-xs ${usage.errors ? "text-amber-300" : "text-ink-700"}`}>{usage.errors}</span>
-      <span className="text-right font-mono text-xs text-ink-500">{usage.calls ? elapsed(usage.p50_ms) : "—"}</span>
+      <span className={`hidden text-right font-mono text-xs lg:block ${usage.errors ? "text-amber-300" : "text-ink-700"}`}>{usage.errors}</span>
+      <span className="hidden text-right font-mono text-xs text-ink-500 lg:block">{usage.calls ? elapsed(usage.p50_ms) : "—"}</span>
     </button>
   );
 }
@@ -230,13 +243,13 @@ function ToolDetail({ tool, usage, policy, days }: { tool: ToolInfo; usage: Tool
 
   return (
     <HudCard eyebrow={`tool · ${ns}`} title={verb(tool.name)}>
-      <div className="flex flex-col gap-2.5 border-b border-ultron-500/15 px-6 pt-1 pb-4">
+      <div className="flex flex-col gap-2.5 border-b border-ultron-500/15 px-4 pt-1 pb-4 sm:px-6">
         <span className="font-mono text-xs [overflow-wrap:anywhere] text-ink-500">{tool.name}</span>
         <p className="text-[13px] leading-normal text-pretty text-ink-400">{tool.description}</p>
       </div>
 
       <div
-        className={`flex items-start gap-3 border-b border-ultron-500/15 px-6 py-3.5 ${
+        className={`flex items-start gap-3 border-b border-ultron-500/15 px-4 py-3.5 sm:px-6 ${
           tool.risk === "read" ? "" : TONE[RISK_TONE[tool.risk]].soft.split(" ")[0]
         }`}
       >
@@ -246,19 +259,19 @@ function ToolDetail({ tool, usage, policy, days }: { tool: ToolInfo; usage: Tool
         <span className="text-[12.5px] leading-normal text-ink-300">{policyNote(tool.risk, policy)}</span>
       </div>
 
-      <div className="flex items-center gap-2.5 px-6 pt-3.5 pb-1.5">
+      <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-1.5 sm:px-6">
         <span className="font-mono text-[10px] font-medium tracking-[0.2em] text-ink-600">PARAMETERS</span>
         {params.length > 0 && <span className="ml-auto font-mono text-[11px] text-ink-700">{params.length} · schema from docstring</span>}
       </div>
       {params.length === 0 ? (
-        <div className="px-6 pt-1 pb-3.5">
+        <div className="px-4 pt-1 pb-3.5 sm:px-6">
           <Quiet>Takes no arguments.</Quiet>
         </div>
       ) : (
         params.map(([name, prop]) => {
           const req = required.has(name) ? "required" : prop.default !== undefined ? `default: ${String(prop.default)}` : "optional";
           return (
-            <div key={name} className="flex flex-col gap-1 border-t border-ink-850 px-6 py-2.5">
+            <div key={name} className="flex flex-col gap-1 border-t border-ink-850 px-4 py-2.5 sm:px-6">
               <p className="flex items-baseline gap-2 font-mono text-xs">
                 <span className="text-ink-200">{name}</span>
                 <span className="min-w-0 [overflow-wrap:anywhere] text-ink-500">{typeOf(prop)}</span>
@@ -270,10 +283,10 @@ function ToolDetail({ tool, usage, policy, days }: { tool: ToolInfo; usage: Tool
         })
       )}
 
-      <div className="border-t border-ultron-500/15 px-6 pt-3.5 pb-1.5 font-mono text-[10px] font-medium tracking-[0.2em] text-ink-600">
+      <div className="border-t border-ultron-500/15 px-4 pt-3.5 pb-1.5 font-mono sm:px-6 text-[10px] font-medium tracking-[0.2em] text-ink-600">
         USAGE · {days} DAYS
       </div>
-      <div className="grid grid-cols-3 gap-2 px-6 pt-1 pb-5">
+      <div className="grid grid-cols-3 gap-2 px-4 pt-1 pb-5 sm:px-6">
         <Figure value={usage.calls} label="calls" />
         <Figure value={usage.errors} label="errors" className={usage.errors ? "text-amber-300" : "text-ink-200"} />
         <Figure value={usage.calls ? elapsed(usage.p50_ms) : "—"} label="p50" />

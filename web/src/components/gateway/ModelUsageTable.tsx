@@ -33,7 +33,7 @@ export function ModelUsageTable({ models, windowLabel }: { models: ModelUsage[];
   return (
     <HudPanel title="Models" note={`all apps · ${windowLabel}`} flush>
       {models.length === 0 ? (
-        <div className="px-5 py-3.5">
+        <div className="px-4 sm:px-5 py-3.5">
           <Quiet>No requests in this window.</Quiet>
         </div>
       ) : (

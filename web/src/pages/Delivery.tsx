@@ -98,9 +98,9 @@ function AppCard({ app, index }: { app: AppDelivery; index: number }) {
       }
     >
       {app.components.length === 0 ? (
-        <p className="px-6 pt-2 pb-5 text-xs text-ink-500">No image pins found in {app.path}/kustomization.yaml.</p>
+        <p className="px-4 sm:px-6 pt-2 pb-5 text-xs text-ink-500">No image pins found in {app.path}/kustomization.yaml.</p>
       ) : (
-        <div className="space-y-3 px-6 pt-3 pb-5">
+        <div className="space-y-3 px-4 sm:px-6 pt-3 pb-5">
           {app.components.map((component) => (
             <ComponentRow key={component.image} component={component} path={app.path || `apps/${app.name}`} />
           ))}

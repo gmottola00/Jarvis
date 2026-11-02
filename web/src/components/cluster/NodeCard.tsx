@@ -60,7 +60,7 @@ export function NodeCard({
     >
       <Learn topic="node" className="mx-6 mt-3" />
 
-      <div className="grid gap-8 px-6 pt-5 pb-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <div className="grid gap-8 px-4 sm:px-6 pt-5 pb-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <div className="grid grid-cols-3 content-start gap-x-2 gap-y-5 sm:grid-cols-5">
           <Gauge
             label="cpu req"

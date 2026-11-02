@@ -79,7 +79,7 @@ export function Runs() {
           <div className="grid items-start gap-4 xl:grid-cols-[30rem_minmax(0,1fr)]">
             <HudPanel title="recent" note="/api/runs · newest first" flush>
               {shown.length === 0 ? (
-                <div className="px-5 py-4">
+                <div className="px-4 sm:px-5 py-4">
                   <Quiet>{all.length ? `No ${filter} runs among the last ${all.length}.` : "No runs yet. Ask something in the chat."}</Quiet>
                 </div>
               ) : (
@@ -108,7 +108,7 @@ function RunRow({ run, on, onPick }: { run: RunSummary; on: boolean; onPick: () 
         type="button"
         onClick={onPick}
         aria-current={on}
-        className={`grid w-full grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-l-2 border-b-ink-850 px-5 py-3 text-left ${
+        className={`grid w-full grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-l-2 border-b-ink-850 px-4 sm:px-5 py-3 text-left ${
           on ? "border-l-ultron-500 bg-ultron-500/10" : "border-l-transparent hover:bg-ultron-500/6"
         }`}
       >
@@ -212,7 +212,7 @@ function RunView({ runId, summary }: { runId: string; summary?: RunSummary }) {
       title={run.run_id}
       status={<span className={`font-mono text-[11px] ${TONE[STATUS_TONE[status]].text}`}>{status}</span>}
     >
-      <div className="flex flex-col gap-2.5 border-b border-ultron-500/15 px-6 pt-2 pb-3.5">
+      <div className="flex flex-col gap-2.5 border-b border-ultron-500/15 px-4 sm:px-6 pt-2 pb-3.5">
         <p className="text-[17px] leading-snug text-ink-200 [overflow-wrap:anywhere]">› {run.prompt}</p>
         <p className="flex flex-wrap gap-x-4.5 gap-y-1.5 font-mono text-[11px] text-ink-500">
           {facts.map(([k, v]) => (
@@ -223,7 +223,7 @@ function RunView({ runId, summary }: { runId: string; summary?: RunSummary }) {
         </p>
       </div>
 
-      <div className="px-6 pt-4 pb-2">
+      <div className="px-4 sm:px-6 pt-4 pb-2">
         <p className="mb-2.5 font-mono text-[10px] font-medium tracking-[0.2em] text-ink-600 uppercase">tool calls · {run.tool_calls.length}</p>
         {timeline.length === 0 && <p className="pb-2.5 text-[12.5px] text-ink-500">No tools were called: the router read this as small talk, or the model answered from what it knew.</p>}
         <ol>

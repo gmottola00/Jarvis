@@ -102,7 +102,7 @@ export function LogViewer({ source }: { source: LogSource }) {
 
   return (
     <div className="flex h-full min-h-[24rem] flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-ink-850 px-5 py-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-ink-850 px-4 sm:px-5 py-2">
         <Badge tone={STATE_TONE[state]}>{paused && state === "live" ? "paused" : state}</Badge>
         {source.kind === "workload" && pods.length > 0 && (
           <span className="font-mono text-[10px] text-ink-600" title={pods.join("\n")}>
@@ -154,9 +154,9 @@ export function LogViewer({ source }: { source: LogSource }) {
         )}
       </div>
 
-      {error && <p className="border-b border-rose-500/20 bg-rose-500/5 px-5 py-1.5 font-mono text-[10px] text-rose-300">{error}</p>}
+      {error && <p className="border-b border-rose-500/20 bg-rose-500/5 px-4 sm:px-5 py-1.5 font-mono text-[10px] text-rose-300">{error}</p>}
 
-      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto bg-ink-950 px-5 py-3">
+      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-auto bg-ink-950 px-4 sm:px-5 py-3">
         {shown.length === 0 ? (
           <p className="font-mono text-[11px] text-ink-800">{state === "connecting" ? "connecting to the kubelet…" : "no lines"}</p>
         ) : (

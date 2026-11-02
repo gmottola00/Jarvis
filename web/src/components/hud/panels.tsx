@@ -38,11 +38,11 @@ export function Corners() {
 /** A panel heading: the red tick, a Rajdhani title, a mono note and any controls on the right. */
 export function HudHeading({ title, note, actions }: { title: string; note?: ReactNode; actions?: ReactNode }) {
   return (
-    <header className="flex items-center gap-2.5 border-b border-ultron-500/15 px-5 py-3">
+    <header className="flex min-w-0 items-center gap-2.5 border-b border-ultron-500/15 px-4 py-3 sm:px-5">
       <span aria-hidden className="h-3.5 w-[3px] bg-ultron-500 shadow-[0_0_8px] shadow-ultron-500" />
       <h3 className="font-display text-sm font-bold tracking-[0.25em] whitespace-nowrap text-ink-300 uppercase">{title}</h3>
       {(note !== undefined || actions) && (
-        <span className="ml-auto flex items-center gap-3 font-mono text-[11px] text-ink-500">
+        <span className="ml-auto flex min-w-0 items-center gap-3 font-mono text-[11px] text-ink-500">
           {note}
           {actions}
         </span>
@@ -67,8 +67,8 @@ export function HudPanel({ title, note, actions, topic, flush = false, children 
   return (
     <section className="min-w-0 border border-ultron-500/22 bg-ink-900/85">
       <HudHeading title={title} note={note} actions={actions} />
-      {topic && <Learn topic={topic} className="mx-5 mt-3" />}
-      <div className={flush ? "" : "px-5 py-3.5"}>{children}</div>
+      {topic && <Learn topic={topic} className="mx-4 mt-3 sm:mx-5" />}
+      <div className={flush ? "" : "px-4 py-3.5 sm:px-5"}>{children}</div>
     </section>
   );
 }
@@ -90,13 +90,13 @@ export function AlertPanel({
   const frame = ALARM[tone];
   return (
     <section className={`${frame.card} min-w-0`}>
-      <header className={`flex items-center gap-2.5 border-b px-5 py-3 ${frame.header}`}>
+      <header className={`flex items-center gap-2.5 border-b px-4 py-3 sm:px-5 ${frame.header}`}>
         {pulse ? <GlowDot tone={tone} pulse /> : <span aria-hidden className={`h-3.5 w-[3px] shadow-[0_0_8px] ${frame.tick}`} />}
         <h3 className={`font-display text-sm font-bold tracking-[0.25em] whitespace-nowrap uppercase ${frame.title}`}>{title}</h3>
         {note !== undefined && <span className={`ml-auto font-mono text-[11px] ${frame.title}`}>{note}</span>}
       </header>
-      {topic && <Learn topic={topic} className="mx-5 mt-3" />}
-      <div className={flush ? "" : "px-5 py-3.5"}>{children}</div>
+      {topic && <Learn topic={topic} className="mx-4 mt-3 sm:mx-5" />}
+      <div className={flush ? "" : "px-4 py-3.5 sm:px-5"}>{children}</div>
     </section>
   );
 }
@@ -120,9 +120,9 @@ export function HudCard({
 }) {
   return (
     <section className="hud-frame min-w-0">
-      <header className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1 px-6 pt-4 pb-1">
+      <header className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1 px-4 pt-4 pb-1 sm:px-6">
         <span className="font-mono text-[10px] font-medium tracking-[0.2em] whitespace-nowrap text-ink-600 uppercase">{eyebrow}</span>
-        <h3 className="font-display text-lg font-bold tracking-[0.25em] whitespace-nowrap text-ink-200 uppercase">{title}</h3>
+        <h3 className="font-display text-lg font-bold tracking-[0.2em] [overflow-wrap:anywhere] text-ink-200 uppercase sm:tracking-[0.25em]">{title}</h3>
         {note !== undefined && <span className="min-w-0 font-mono text-[11px] text-ultron-300">{note}</span>}
         {status && <span className="ml-auto flex items-center gap-2">{status}</span>}
       </header>

@@ -16,11 +16,11 @@ const ROW_MARK: Partial<Record<Tone, string>> = {
 export function ArgoApps({ apps }: { apps: AppDelivery[] }) {
   return (
     <HudCard eyebrow="gitops" title="ArgoCD" note={`${apps.length} apps`}>
-      <div className="px-6 pt-2">
+      <div className="px-4 sm:px-6 pt-2">
         <Learn topic="gitops" />
         <LearnCommand command="kubectl get applications -n argocd -o wide" />
       </div>
-      <ul className="grid gap-x-6 px-6 pt-1.5 pb-5 md:grid-cols-2">
+      <ul className="grid gap-x-6 px-4 sm:px-6 pt-1.5 pb-5 md:grid-cols-2">
         {apps.map((app) => {
           const tone = argoTone(app);
           return (

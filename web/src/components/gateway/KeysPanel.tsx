@@ -11,7 +11,7 @@ export function KeysPanel({ keys, windowLabel }: { keys: KeyUsage[]; windowLabel
   return (
     <HudPanel title="Keys" note="one per app · budget this period" topic="gateway" flush>
       {keys.length === 0 ? (
-        <div className="px-5 py-3.5">
+        <div className="px-4 sm:px-5 py-3.5">
           <Quiet>No virtual keys.</Quiet>
         </div>
       ) : (
@@ -20,7 +20,7 @@ export function KeysPanel({ keys, windowLabel }: { keys: KeyUsage[]; windowLabel
             const tone = spendTone(k.spend, k.max_budget);
             const width = k.budget_used === null ? 0 : Math.min(100, k.budget_used * 100);
             return (
-              <li key={k.alias} className="grid gap-1.5 px-5 py-3">
+              <li key={k.alias} className="grid gap-1.5 px-4 sm:px-5 py-3">
                 <p className="flex items-baseline gap-3 font-mono text-xs">
                   <span className="font-medium text-ink-200">{k.alias}</span>
                   <span className={tone === "idle" ? "text-ink-300" : TONE[tone].text}>

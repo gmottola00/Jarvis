@@ -16,7 +16,7 @@ const SUGGESTIONS = [
 
 function EmptyState({ onSuggest }: { onSuggest?: (prompt: string) => void }) {
   return (
-    <div className="flex h-full items-center justify-center px-6 py-10">
+    <div className="flex h-full items-center justify-center px-4 sm:px-6 py-10">
       <div className="max-w-lg space-y-6 text-center">
         <div className="flex justify-center">
           <UltronCore size={84} live />

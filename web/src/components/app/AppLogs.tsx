@@ -37,7 +37,7 @@ export function AppLogs({
   return (
     <section className="flex h-[calc(100vh-15rem)] min-h-[28rem] flex-col border border-ultron-500/22 bg-ink-900/85">
       {workloads.length > 1 && (
-        <div className="flex gap-1.5 border-b border-ink-850 px-5 py-2">
+        <div className="flex gap-1.5 border-b border-ink-850 px-4 sm:px-5 py-2">
           {workloads.map((w) => (
             <button
               key={w.name}
@@ -55,7 +55,7 @@ export function AppLogs({
           ))}
         </div>
       )}
-      <div className="px-5">
+      <div className="px-4 sm:px-5">
         <LearnCommand command={kubectl.appLogs(namespace, workload.selector, containers.length > 1 ? containers[0] : undefined)} />
       </div>
       <div className="min-h-0 flex-1">

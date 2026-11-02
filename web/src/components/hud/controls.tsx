@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import { useEffect, useRef, type ButtonHTMLAttributes } from "react";
 
 const BASE = "border font-display text-xs font-semibold tracking-[0.15em] uppercase disabled:opacity-50";
 
@@ -38,8 +38,22 @@ export function BracketTabs<T extends string>({
   value: T;
   onChange: (id: T) => void;
 }) {
+  const strip = useRef<HTMLDivElement>(null);
+
+  // On a phone the strip scrolls sideways: keep the open tab in view, also when
+  // a link or a reload lands on one past the edge. Only the strip moves, never the page.
+  useEffect(() => {
+    const el = strip.current;
+    const tab = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !tab) return;
+    const left = tab.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    if (left < el.scrollLeft || left + tab.offsetWidth > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: left - (el.clientWidth - tab.offsetWidth) / 2, behavior: "smooth" });
+    }
+  }, [value]);
+
   return (
-    <div role="tablist" className="flex gap-1.5 overflow-x-auto">
+    <div ref={strip} role="tablist" className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] sm:gap-1.5">
       {tabs.map((tab) => {
         const active = value === tab.id;
         const bracket = active ? "text-ultron-500" : "text-transparent";
@@ -50,7 +64,7 @@ export function BracketTabs<T extends string>({
             type="button"
             aria-selected={active}
             onClick={() => onChange(tab.id)}
-            className={`flex shrink-0 items-baseline gap-2 px-3 py-1.5 font-display text-[13px] font-semibold tracking-[0.18em] whitespace-nowrap uppercase ${
+            className={`flex shrink-0 items-baseline gap-1.5 px-2 py-1.5 font-display text-[13px] font-semibold tracking-[0.12em] whitespace-nowrap uppercase sm:gap-2 sm:px-3 sm:tracking-[0.18em] ${
               active ? "bg-ultron-500/10 text-ultron-300" : "text-ink-500 hover:text-ink-300"
             }`}
           >

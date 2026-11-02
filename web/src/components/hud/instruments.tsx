@@ -14,22 +14,26 @@ export interface Readout {
   tone: Tone;
 }
 
-/** The numbers that answer "is anything wrong" before you scroll, in one framed strip. */
+/**
+ * The numbers that answer "is anything wrong" before you scroll, in one framed strip.
+ * An odd count would leave a hole in the two-column grid, so the last readout
+ * takes the whole row (the four corner marks come first: positions stay even).
+ */
 export function Readouts({ readouts }: { readouts: Readout[] }) {
   return (
-    <div className="relative grid grid-cols-2 gap-px border border-ultron-500/22 bg-ultron-500/15 lg:grid-cols-4">
+    <div className="relative grid grid-cols-2 gap-px border border-ultron-500/22 bg-ultron-500/15 lg:grid-cols-4 [&>:last-child:nth-child(odd)]:col-span-2 lg:[&>:last-child:nth-child(odd)]:col-span-1">
       <Corners />
       {readouts.map((r) => (
         <div
           key={r.label}
-          className={`flex min-w-0 flex-col gap-1.5 border-b-2 border-b-transparent bg-ink-900 bg-linear-to-b from-ultron-500/6 to-transparent to-70% px-6 py-5 ${UNDERLINE[r.tone] ?? ""}`}
+          className={`flex min-w-0 flex-col gap-1.5 border-b-2 border-b-transparent bg-ink-900 bg-linear-to-b from-ultron-500/6 to-transparent to-70% px-4 py-4 sm:px-6 sm:py-5 ${UNDERLINE[r.tone] ?? ""}`}
         >
-          <p className="flex items-center gap-2 font-mono text-[10px] font-medium tracking-[0.2em] whitespace-nowrap text-ink-500 uppercase">
+          <p className="flex items-center gap-2 font-mono text-[10px] font-medium tracking-[0.15em] whitespace-nowrap text-ink-500 uppercase sm:tracking-[0.2em]">
             <GlowDot tone={r.tone} size="sm" />
             {r.label}
           </p>
           <p
-            className={`font-display text-4xl leading-none font-bold lg:text-5xl ${TONE[r.tone].text}`}
+            className={`font-display text-3xl leading-none font-bold sm:text-4xl lg:text-5xl ${TONE[r.tone].text}`}
             style={{ textShadow: "0 0 18px color-mix(in oklch, currentColor 35%, transparent)" }}
           >
             {r.value}

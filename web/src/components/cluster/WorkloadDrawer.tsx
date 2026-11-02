@@ -43,7 +43,7 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
         </span>
       }
     >
-      <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-5 py-2">
+      <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-4 sm:px-5 py-2">
         <Tabs
           value={tab}
           onChange={setTab}
@@ -56,11 +56,11 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
         />
       </div>
 
-      {loading && <div className="px-5 py-4"><Loading /></div>}
-      {error && !data && <div className="px-5 py-4"><ErrorNote errors={error} /></div>}
+      {loading && <div className="px-4 sm:px-5 py-4"><Loading /></div>}
+      {error && !data && <div className="px-4 sm:px-5 py-4"><ErrorNote errors={error} /></div>}
 
       {data && w && tab === "rollout" && (
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 px-4 sm:px-5 py-4">
           <Learn topic={KIND_TOPIC[w.kind]} />
           <LearnCommand command={kubectl.workload(w.kind, namespace, name)} />
           <Counters workload={w} />
@@ -88,7 +88,7 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
       )}
 
       {data && tab === "pods" && (
-        <div className="px-5 py-4">
+        <div className="px-4 sm:px-5 py-4">
           <CardPanel title="Pods" note={w && `selector ${selectorText(w.selector)}`} flush>
             <PodTable pods={data.pods} onSelect={onSelect} showNamespace={false} />
           </CardPanel>
@@ -96,7 +96,7 @@ export function WorkloadDrawer({ namespace, name, onSelect }: { namespace: strin
       )}
 
       {data && tab === "events" && (
-        <div className="px-5 py-4">
+        <div className="px-4 sm:px-5 py-4">
           <CardPanel title="Events" topic="events">
             <EventFeed events={data.events} showNamespace={false} />
           </CardPanel>
