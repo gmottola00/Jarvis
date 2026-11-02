@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -39,18 +40,21 @@ export function Drawer({
         aria-modal="true"
         className="relative flex h-full w-full max-w-3xl flex-col border-l border-ink-850 bg-ink-950 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl"
       >
-        <header className="flex items-start gap-3 border-b border-ink-850 px-5 py-3">
+        {/* On a phone the aside (status, links) drops under the title instead of squeezing it. */}
+        <header className="flex flex-wrap items-start gap-x-3 gap-y-2 border-b border-ink-850 px-4 py-3 sm:flex-nowrap sm:px-5">
           <div className="min-w-0 flex-1">
             {eyebrow && <div className="mb-1 font-mono text-[10px] text-ink-600">{eyebrow}</div>}
             <h2 className="truncate font-mono text-sm text-ink-200">{title}</h2>
           </div>
-          {aside}
+          {aside && <div className="order-last w-full sm:order-none sm:w-auto">{aside}</div>}
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 font-mono text-[11px] text-ink-600 hover:bg-ink-850 hover:text-ink-200"
+            aria-label="Close"
+            className="-mr-1 rounded-md p-1.5 font-mono text-[11px] text-ink-500 hover:bg-ink-850 hover:text-ink-200 sm:mr-0 sm:px-2 sm:py-1 sm:text-ink-600"
           >
-            esc
+            <X className="size-5 sm:hidden" />
+            <span className="hidden sm:inline">esc</span>
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>

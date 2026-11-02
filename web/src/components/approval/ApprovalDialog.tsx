@@ -21,7 +21,7 @@ export function ApprovalDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/85 p-4 backdrop-blur-sm">
       <div role="alertdialog" className="hud-frame w-full max-w-lg shadow-2xl">
-        <header className="flex items-center gap-2.5 border-b border-ultron-900 px-5 py-3.5">
+        <header className="flex items-center gap-2.5 border-b border-ultron-900 px-4 sm:px-5 py-3.5">
           <ShieldAlert className="size-4 text-ultron-400" />
           <h2 className="font-display text-sm font-bold tracking-[0.2em] uppercase">Approval required</h2>
           <span className="ml-auto bg-ultron-500/15 px-1.5 py-0.5 font-mono text-[10px] text-ultron-300 uppercase ring-1 ring-ultron-500/40">
@@ -29,7 +29,7 @@ export function ApprovalDialog({
           </span>
         </header>
 
-        <div className="space-y-3.5 px-5 py-4">
+        <div className="space-y-3.5 px-4 sm:px-5 py-4">
           <p className="font-mono text-sm text-ink-200">{approval.tool}</p>
 
           {Object.keys(approval.args).length > 0 && (
@@ -41,7 +41,7 @@ export function ApprovalDialog({
           <p className="text-sm text-ink-600">{approval.why}</p>
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-ultron-900 px-5 py-3">
+        <footer className="flex justify-end gap-2 border-t border-ultron-900 px-4 sm:px-5 py-3">
           <button
             type="button"
             onClick={() => onDecide(false)}

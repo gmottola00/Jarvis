@@ -54,7 +54,7 @@ export function PodDrawer({
         </span>
       }
     >
-      <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-5 py-2">
+      <div className="sticky top-0 z-10 border-b border-ink-850 bg-ink-950 px-4 sm:px-5 py-2">
         <Tabs
           value={tab}
           onChange={setTab}
@@ -67,11 +67,11 @@ export function PodDrawer({
         />
       </div>
 
-      {pod.loading && <div className="px-5 py-4"><Loading /></div>}
-      {pod.error && !data && <div className="px-5 py-4"><ErrorNote errors={pod.error} /></div>}
+      {pod.loading && <div className="px-4 sm:px-5 py-4"><Loading /></div>}
+      {pod.error && !data && <div className="px-4 sm:px-5 py-4"><ErrorNote errors={pod.error} /></div>}
 
       {data && tab === "overview" && (
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 px-4 sm:px-5 py-4">
           <Learn topic="pod" />
           <LearnCommand command={kubectl.pod(namespace, name)} />
           <StateBadge tone={podTone(data)} state={podStatus(data)} explain />
@@ -118,7 +118,7 @@ export function PodDrawer({
       )}
 
       {data && tab === "containers" && (
-        <div className="space-y-3 px-5 py-4">
+        <div className="space-y-3 px-4 sm:px-5 py-4">
           <Learn topic="requests" />
           <Learn topic="probes" />
           {data.containers.some((c) => c.restarts > 0) && <Learn topic="restarts" />}

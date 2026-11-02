@@ -45,7 +45,7 @@ export function Composer({
   }
 
   return (
-    <div className="px-4 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] sm:px-6">
+    <div className="px-3 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6 sm:pb-[max(env(safe-area-inset-bottom),1rem)]">
       <div className="mx-auto max-w-4xl">
         <div className="relative border border-ink-800 bg-ink-900/90 backdrop-blur transition-shadow focus-within:border-ultron-600 focus-within:shadow-[0_0_24px_-6px_var(--color-ultron-500)]">
           <span className="absolute -top-px -left-px size-2.5 border-t-2 border-l-2 border-ultron-500" aria-hidden />
@@ -68,15 +68,15 @@ export function Composer({
             }}
             className="block max-h-52 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-sm outline-none placeholder:text-ink-700 disabled:opacity-50"
           />
-          <div className="flex items-center gap-2 px-2.5 pb-2.5">
+          <div className="flex min-w-0 items-center gap-2 px-2.5 pb-2.5">
             {accessory}
-            <span className="ml-auto hidden font-mono text-[10px] text-ink-700 sm:inline">⏎ send · ⇧⏎ newline</span>
+            <span className="hidden font-mono text-[10px] text-ink-700 sm:ml-auto sm:inline">⏎ send · ⇧⏎ newline</span>
             <button
               type="button"
               onClick={submit}
               aria-label="Send"
               disabled={busy || disabled || !value.trim()}
-              className="inline-flex items-center gap-1.5 bg-ultron-600 px-3 py-1.5 font-display text-xs font-bold tracking-[0.2em] text-white uppercase transition hover:bg-ultron-500 hover:shadow-[0_0_14px_var(--color-ultron-500)] disabled:bg-ink-850 disabled:text-ink-600 disabled:shadow-none"
+              className="ml-auto inline-flex shrink-0 items-center gap-1.5 bg-ultron-600 px-3 py-1.5 font-display text-xs font-bold tracking-[0.2em] text-white uppercase transition hover:bg-ultron-500 hover:shadow-[0_0_14px_var(--color-ultron-500)] disabled:bg-ink-850 disabled:text-ink-600 disabled:shadow-none"
             >
               {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <CornerDownLeft className="size-3.5" />}
               send

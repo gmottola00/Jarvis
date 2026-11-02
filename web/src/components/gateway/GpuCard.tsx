@@ -9,7 +9,7 @@ export function GpuCard({ gpu, fallback, hasLocal }: { gpu: GpuState | null; fal
   if (!gpu) {
     return (
       <HudCard eyebrow="gpu node" title="not probed">
-        <div className="px-6 pt-2 pb-5">
+        <div className="px-4 sm:px-6 pt-2 pb-5">
           <Aside>
             <span className="font-mono">JARVIS_OLLAMA_URL</span> is not set, so Jarvis cannot tell whether the GPU machine is on.
             {hasLocal && " Local models are listed as available, and a run to one fails with a gateway error if the machine is off."}
@@ -29,7 +29,7 @@ export function GpuCard({ gpu, fallback, hasLocal }: { gpu: GpuState | null; fal
 
   return (
     <HudCard eyebrow="gpu node" title={host} note={<span className={TONE[tone].text}>{gpu.up ? "ollama answering" : "not answering"}</span>}>
-      <div className="grid gap-5 px-6 pt-3.5 pb-5.5 md:grid-cols-2">
+      <div className="grid gap-5 px-4 sm:px-6 pt-3.5 pb-5.5 md:grid-cols-2">
         <div className="flex flex-col gap-2">
           {facts.map(([k, v, color]) => (
             <Leader key={k} label={k} value={<span className={color}>{v}</span>} />

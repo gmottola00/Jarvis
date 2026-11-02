@@ -7,13 +7,13 @@ export function RecentErrors({ errors, windowLabel }: { errors: GatewayError[]; 
   return (
     <HudPanel title="Recent errors" note={windowLabel} flush>
       {errors.length === 0 ? (
-        <div className="px-5 py-3.5">
+        <div className="px-4 sm:px-5 py-3.5">
           <Quiet>No failed request in this window.</Quiet>
         </div>
       ) : (
         <ul className="divide-y divide-ink-850">
           {errors.map((e, index) => (
-            <li key={`${e.at}-${index}`} className="grid gap-1 px-5 py-2.5 font-mono text-[11px]">
+            <li key={`${e.at}-${index}`} className="grid gap-1 px-4 sm:px-5 py-2.5 font-mono text-[11px]">
               <p className="flex flex-wrap gap-x-3 gap-y-0.5">
                 <span className="text-amber-300">
                   {e.error_class || "error"}

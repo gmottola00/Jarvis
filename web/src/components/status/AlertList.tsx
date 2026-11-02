@@ -76,9 +76,9 @@ export function AlertList() {
               }
             >
               {alerts.length === 0 ? (
-                <p className="px-6 pt-2 pb-5 text-xs text-ink-500">Nothing is firing. Quiet is the expected state.</p>
+                <p className="px-4 sm:px-6 pt-2 pb-5 text-xs text-ink-500">Nothing is firing. Quiet is the expected state.</p>
               ) : (
-                <ul className="space-y-3 px-6 pt-3 pb-5">
+                <ul className="space-y-3 px-4 sm:px-6 pt-3 pb-5">
                   {alerts.map((alert) => (
                     <AlertCard key={alert.fingerprint} alert={alert} />
                   ))}

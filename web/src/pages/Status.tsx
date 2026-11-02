@@ -130,10 +130,10 @@ function ProblemRow({ problem: p }: { problem: Problem }) {
   }
 
   return (
-    <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-l-2 px-5 py-3 ${tone === "bad" ? "border-l-rose-400" : "border-l-amber-400"}`}>
+    <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-l-2 px-4 sm:px-5 py-3 ${tone === "bad" ? "border-l-rose-400" : "border-l-amber-400"}`}>
       <GlowDot tone={tone} pulse={tone === "bad"} />
       <span className="w-16 shrink-0 font-mono text-[10px] tracking-[0.15em] text-ink-600 uppercase">{KIND_LABEL[p.kind]}</span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-52">
         <p className={`text-sm [overflow-wrap:anywhere] ${TONE[tone].text}`}>{p.title}</p>
         <p className="mt-0.5 font-mono text-[11px] [overflow-wrap:anywhere] text-ink-500">
           {p.namespace && <span className="text-ink-600">{p.namespace} · </span>}

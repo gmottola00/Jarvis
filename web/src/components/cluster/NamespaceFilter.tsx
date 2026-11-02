@@ -50,11 +50,11 @@ export function NamespaceFilter({
   };
 
   return (
-    <div className="flex items-start gap-3.5">
+    <div className="flex items-start gap-2.5 sm:gap-3.5">
       <span className="shrink-0 pt-1.5 font-display text-xs font-semibold tracking-[0.2em] text-ink-600">
         SCOPE <span className="font-mono tracking-normal text-ultron-300">-n</span>
       </span>
-      <div className="flex flex-wrap gap-1">
+      <div className="-mr-3 flex min-w-0 gap-1 overflow-x-auto pr-3 [scrollbar-width:none] sm:mr-0 sm:flex-wrap sm:overflow-visible sm:pr-0">
         {chip("all", "all namespaces", ready, total, false)}
         {namespaces.map((ns) => chip(ns.name, ns.name, ns.pods_ready, ns.pods_total, true))}
       </div>
