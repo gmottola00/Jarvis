@@ -706,9 +706,9 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "quaerium", extras = ["agents", "server"], specifier = ">=0.4,<0.5" },
-    { name = "quaerium", extras = ["agents-postgres"], marker = "extra == 'postgres'", specifier = ">=0.4,<0.5" },
-    { name = "quaerium", extras = ["agents-redis"], marker = "extra == 'redis'", specifier = ">=0.4,<0.5" },
+    { name = "quaerium", extras = ["agents", "server"], specifier = ">=0.4.1,<0.5" },
+    { name = "quaerium", extras = ["agents-postgres"], marker = "extra == 'postgres'", specifier = ">=0.4.1,<0.5" },
+    { name = "quaerium", extras = ["agents-redis"], marker = "extra == 'redis'", specifier = ">=0.4.1,<0.5" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "tenacity", specifier = ">=9.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
@@ -1620,15 +1620,15 @@ wheels = [
 
 [[package]]
 name = "quaerium"
-version = "0.4.0"
+version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/b3/53f1e02121e391a91d4a8179f55c4947136b74ad64be7e2e1a53f8b1f771/quaerium-0.4.0.tar.gz", hash = "sha256:658b4e5edade5257be0c516c7d9876f36bfc7f895103380fa8e8bd410be6344a", size = 134462, upload-time = "2026-11-01T22:30:12.824Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/11/22843c277cdb0529ff06bed46ba6090c6405e38492e1b4eeba83bcc321b9/quaerium-0.4.1.tar.gz", hash = "sha256:44f53ec578603ebafc3e0c9b46eaf755134d67447932301ee25617b1f865517f", size = 136781, upload-time = "2026-11-02T01:23:33.674Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/7a/72f5431c4ed41fa5db9162bc160a361ed0e9fe291a4ad751e1a00e628ccb/quaerium-0.4.0-py3-none-any.whl", hash = "sha256:591a9c3678d3c50c026a3a8435e2c68d1242da0591268e1868accba320b49ebd", size = 189137, upload-time = "2026-11-01T22:30:11.434Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/61/0ed871e3e5286565674809b2686ed50b094d66564e10fcb7b865d997a3c1/quaerium-0.4.1-py3-none-any.whl", hash = "sha256:1d2919c6aeeeefd554d5f685fb614f438c31888ad3ae9a05e2e6117b27faf765", size = 191447, upload-time = "2026-11-02T01:23:32.255Z" },
 ]
 
 [package.optional-dependencies]
