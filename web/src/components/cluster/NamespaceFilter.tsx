@@ -28,7 +28,7 @@ export function NamespaceFilter({
         type="button"
         aria-pressed={active}
         onClick={() => onChange(name)}
-        className={`flex shrink-0 flex-col gap-1 border px-2.5 pt-1.5 pb-1 font-mono text-xs whitespace-nowrap ${
+        className={`flex shrink-0 flex-col gap-1 border px-2 pt-1.5 pb-1 sm:px-2.5 font-mono text-xs whitespace-nowrap ${
           active
             ? "border-ultron-500/70 bg-ultron-500/12 text-ultron-300"
             : "border-ink-850 bg-ink-900/70 text-ink-400 hover:border-ink-800 hover:text-ink-200"
@@ -50,11 +50,13 @@ export function NamespaceFilter({
   };
 
   return (
-    <div className="flex items-start gap-2.5 sm:gap-3.5">
-      <span className="shrink-0 pt-1.5 font-display text-xs font-semibold tracking-[0.2em] text-ink-600">
+    // On a phone the label sits above and the chips wrap: a sideways strip
+    // hides most namespaces past the edge.
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-3.5">
+      <span className="shrink-0 font-display sm:pt-1.5 text-xs font-semibold tracking-[0.2em] text-ink-600">
         SCOPE <span className="font-mono tracking-normal text-ultron-300">-n</span>
       </span>
-      <div className="-mr-3 flex min-w-0 gap-1 overflow-x-auto pr-3 [scrollbar-width:none] sm:mr-0 sm:flex-wrap sm:overflow-visible sm:pr-0">
+      <div className="flex min-w-0 flex-wrap gap-1">
         {chip("all", "all namespaces", ready, total, false)}
         {namespaces.map((ns) => chip(ns.name, ns.name, ns.pods_ready, ns.pods_total, true))}
       </div>
