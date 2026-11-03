@@ -35,11 +35,10 @@ body {
   height: 100%;
 }
 
-/* Pinned to the screen's edges rather than sized by height: an installed
- * iPhone app (black-translucent status bar) mis-measures 100% and 100dvh,
- * leaving a strip under the tab bar and letting the page slide under the
- * status bar. A fixed box always covers the whole screen, and the window
- * itself never scrolls. */
+/* Pinned to the screen's edges rather than sized by height, so the tab bar
+ * always meets the bottom edge and the window itself never scrolls (each
+ * page scrolls its own column). The status bar is opaque (`black` in
+ * index.html, as Alfred's `default`), so the page starts below it. */
 #root {
   position: fixed;
   inset: 0;
