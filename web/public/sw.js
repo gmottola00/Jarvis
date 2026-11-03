@@ -1,4 +1,4 @@
-// Jarvis's service worker: an app shell that opens without a blank screen,
+// Ultron's service worker: an app shell that opens without a blank screen,
 // and the receiving end of Web Push.
 //
 // It never touches /api: answers, run streams (SSE) and approvals always come

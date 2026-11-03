@@ -4,8 +4,8 @@
 
 **An AI agent that operates your home lab, without ever touching the cluster.**
 
-[![Backend CI](https://github.com/gmottola00/ultron-home-lab/actions/workflows/backend.yml/badge.svg)](https://github.com/gmottola00/ultron-home-lab/actions/workflows/backend.yml)
-[![Web CI](https://github.com/gmottola00/ultron-home-lab/actions/workflows/web.yml/badge.svg)](https://github.com/gmottola00/ultron-home-lab/actions/workflows/web.yml)
+[![Backend CI](https://github.com/gmottola00/Ultron-Home-Lab/actions/workflows/backend.yml/badge.svg)](https://github.com/gmottola00/Ultron-Home-Lab/actions/workflows/backend.yml)
+[![Web CI](https://github.com/gmottola00/Ultron-Home-Lab/actions/workflows/web.yml/badge.svg)](https://github.com/gmottola00/Ultron-Home-Lab/actions/workflows/web.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)

@@ -44,7 +44,7 @@ function storedCollapsed(): boolean {
 
 /**
  * The left rail: four questions — is everything fine, what runs, what ships,
- * ask Jarvis — and settings in the footer. Collapsed it is icons only; on a
+ * ask Ultron — and settings in the footer. Collapsed it is icons only; on a
  * phone it is an overlay drawer opened from the top bar.
  */
 export function Sidebar<T extends string>({

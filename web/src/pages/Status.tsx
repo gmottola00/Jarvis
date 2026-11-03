@@ -37,7 +37,7 @@ export function Status({ tab: rawTab }: { tab?: string }) {
   return (
     <HudPage
       title="Status"
-      subtitle="Everything that wants a look, from every system. Investigate hands one to Jarvis."
+      subtitle="Everything that wants a look, from every system. Investigate hands one to Ultron."
       live={refreshing}
       status={<LiveStamp error={Boolean(error)} every={STATUS_MS} at={data?.fetched_at} />}
       actions={<RefreshButton onClick={refresh} refreshing={refreshing} />}

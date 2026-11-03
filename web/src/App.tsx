@@ -21,7 +21,7 @@ const TABS = [
   { id: "status", label: "status", icon: ICONS.status },
   { id: "cluster", label: "cluster", icon: ICONS.cluster },
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
-  { id: "jarvis", label: "jarvis", icon: ICONS.jarvis },
+  { id: "jarvis", label: "ultron", icon: ICONS.jarvis },
 ] as const;
 
 type Tab = (typeof TABS)[number]["id"] | "settings";

@@ -11,7 +11,7 @@ export function GpuCard({ gpu, fallback, hasLocal }: { gpu: GpuState | null; fal
       <HudCard eyebrow="gpu node" title="not probed">
         <div className="px-4 sm:px-6 pt-2 pb-5">
           <Aside>
-            <span className="font-mono">JARVIS_OLLAMA_URL</span> is not set, so Jarvis cannot tell whether the GPU machine is on.
+            <span className="font-mono">JARVIS_OLLAMA_URL</span> is not set, so Ultron cannot tell whether the GPU machine is on.
             {hasLocal && " Local models are listed as available, and a run to one fails with a gateway error if the machine is off."}
           </Aside>
         </div>

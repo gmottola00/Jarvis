@@ -1,11 +1,11 @@
-# Contributing to Jarvis
+# Contributing to Ultron
 
-Thanks for your interest! Jarvis started as a personal home-lab agent, so the
+Thanks for your interest! Ultron started as a personal home-lab agent, so the
 project is opinionated, but fixes and improvements are welcome.
 
 ## Ground rule
 
-Jarvis must never gain a way to change the cluster directly. Contributions that
+Ultron must never gain a way to change the cluster directly. Contributions that
 add `apply`, `patch`, `delete` or `scale` style tools will not be merged; the
 test suite checks for them. Changes go through commits and pull requests.
 

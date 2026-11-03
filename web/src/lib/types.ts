@@ -110,7 +110,7 @@ export interface GpuState {
   resident: { name: string; vram_bytes: number }[];
 }
 
-/** Spend of Jarvis's own gateway key, in dollars. `max_budget` null = unlimited. */
+/** Spend of Ultron's own gateway key, in dollars. `max_budget` null = unlimited. */
 export interface Budget {
   spend: number;
   max_budget: number | null;

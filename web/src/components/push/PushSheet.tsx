@@ -5,12 +5,12 @@ import { HudButton } from "../hud/controls";
 import { Drawer } from "../ui/Drawer";
 
 const TEXT: Record<PushState | "server-off", string> = {
-  "server-off": "Notifications are not configured on this Jarvis (JARVIS_NOTIFY_URL and NOTIFY_TOKEN).",
+  "server-off": "Notifications are not configured on this Ultron (JARVIS_NOTIFY_URL and NOTIFY_TOKEN).",
   unsupported: "This browser cannot receive push notifications.",
   "needs-home-screen":
     "On iPhone, notifications only reach the app added to the Home Screen: tap Share, then “Add to Home Screen”, and open Ultron from there.",
   denied: "Notifications are blocked. Turn them back on in Settings › Notifications › Ultron.",
-  off: "Jarvis tells you here when a run stops to wait for your approval, so a merge or a restart is never stuck waiting for you.",
+  off: "Ultron tells you here when a run stops to wait for your approval, so a merge or a restart is never stuck waiting for you.",
   on: "Notifications are on for this device.",
 };
 

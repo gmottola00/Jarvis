@@ -1,6 +1,6 @@
 # Security Policy
 
-Jarvis is an agent with read access to a Kubernetes cluster, logs, metrics,
+Ultron is an agent with read access to a Kubernetes cluster, logs, metrics,
 ArgoCD and GitHub. Security reports are taken seriously.
 
 ## Design guarantees
@@ -8,7 +8,7 @@ ArgoCD and GitHub. Security reports are taken seriously.
 These are architectural, and a test enforces the first one:
 
 - **No write path to the cluster.** There is no `apply`, `patch`, `delete` or
-  `scale` tool. Jarvis changes infrastructure only by opening pull requests;
+  `scale` tool. Ultron changes infrastructure only by opening pull requests;
   ArgoCD is the only thing that applies them.
 - **Human approval.** Actions that open PRs are suspended until a person approves.
 - **No built-in authentication.** The console is meant to sit behind a private

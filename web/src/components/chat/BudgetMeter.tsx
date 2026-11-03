@@ -3,7 +3,7 @@ import type { Budget } from "../../lib/types";
 const usd = (value: number) => `$${value.toFixed(2)}`;
 
 /**
- * What Jarvis's gateway key has spent against its budget. Amber from 80%,
+ * What Ultron's gateway key has spent against its budget. Amber from 80%,
  * rose once spent: past the budget the gateway refuses every request until
  * it resets.
  */

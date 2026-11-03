@@ -57,7 +57,7 @@ export function ModelCard({
       <div className="flex flex-col gap-1.5 px-4 pt-3 pb-3.5">
         <Leader label="backend" value={<span className="text-ink-400">{model.backend || "anthropic (direct)"}</span>} />
         <Leader label="status" value={<span className={TONE[tone].text}>{status}</span>} />
-        <Leader label="jarvis runs" value={<span className="text-ink-400">{answered.length} · {tokens(used)} tokens</span>} />
+        <Leader label="ultron runs" value={<span className="text-ink-400">{answered.length} · {tokens(used)} tokens</span>} />
         {usage && (
           <>
             <Leader

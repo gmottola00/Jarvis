@@ -29,7 +29,7 @@ const WINDOWS = [
 type WindowId = (typeof WINDOWS)[number]["id"];
 
 /**
- * How Jarvis reaches its models, and what the LiteLLM gateway did for every
+ * How Ultron reaches its models, and what the LiteLLM gateway did for every
  * app: spend against each key's budget, failures, latency, daily cost. The
  * rest — single requests, key management — stays in LiteLLM's own UI.
  */
@@ -52,7 +52,7 @@ export function Settings() {
   return (
     <HudPage
       title="Models & gateway"
-      subtitle="What Jarvis may call, and what LiteLLM did for every app."
+      subtitle="What Ultron may call, and what LiteLLM did for every app."
       live={refreshing}
       status={<LiveStamp error={Boolean(catalog.error || gateway.error)} every={GATEWAY_MS} at={view?.fetched_at} />}
       actions={

@@ -3,7 +3,7 @@ import { HudPanel, Quiet } from "../hud";
 import { TONE } from "../ui/tone";
 import { resetDay, spendTone, usd } from "./format";
 
-/** Jarvis's own key from `/key/info`: the fallback when the gateway view is not configured. */
+/** Ultron's own key from `/key/info`: the fallback when the gateway view is not configured. */
 export function BudgetPanel({ budget, gateway }: { budget: Budget | null; gateway: boolean }) {
   return (
     <HudPanel title="budget" note="/key/info">

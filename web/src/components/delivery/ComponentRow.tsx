@@ -102,7 +102,7 @@ export function ComponentRow({ component, path }: { component: ComponentDelivery
 
 /**
  * The entire deploy, as a diff. Promoting a build in GitOps is a one-line
- * change to a file — this is the line, and the PR Jarvis would open for it.
+ * change to a file — this is the line, and the PR Ultron would open for it.
  */
 function BumpPreview({ path, image, from, to }: { path: string; image: string; from: string; to: string }) {
   return (
