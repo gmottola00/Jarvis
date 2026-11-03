@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🤖 Jarvis
+# 🤖 Ultron Home Lab
 
 **An AI agent that operates your home lab, without ever touching the cluster.**
 
