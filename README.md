@@ -4,8 +4,8 @@
 
 **An AI agent that operates your home lab, without ever touching the cluster.**
 
-[![Backend CI](https://github.com/gmottola00/Jarvis/actions/workflows/backend.yml/badge.svg)](https://github.com/gmottola00/Jarvis/actions/workflows/backend.yml)
-[![Web CI](https://github.com/gmottola00/Jarvis/actions/workflows/web.yml/badge.svg)](https://github.com/gmottola00/Jarvis/actions/workflows/web.yml)
+[![Backend CI](https://github.com/gmottola00/ultron-home-lab/actions/workflows/backend.yml/badge.svg)](https://github.com/gmottola00/ultron-home-lab/actions/workflows/backend.yml)
+[![Web CI](https://github.com/gmottola00/ultron-home-lab/actions/workflows/web.yml/badge.svg)](https://github.com/gmottola00/ultron-home-lab/actions/workflows/web.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)
@@ -16,24 +16,24 @@
 
 ---
 
-Jarvis is **P0 — "hands, no face"**: a text-only agent driven from a web console
+Ultron is **P0 — "hands, no face"**: a text-only agent driven from a web console
 (and installable on your phone). Ask it why a pod is crashing, what changed in
 ArgoCD, or to scale an app, and it reads Kubernetes, Prometheus, Loki, ArgoCD and
 GitHub to answer.
 
-> **Jarvis has no `kubectl apply` in its hands.** It writes commits and opens pull
+> **Ultron has no `kubectl apply` in its hands.** It writes commits and opens pull
 > requests against your infra repo and app repos; ArgoCD stays the only thing
-> that changes the cluster, so every action Jarvis takes is diffable and revertible.
+> that changes the cluster, so every action Ultron takes is diffable and revertible.
 
 That is not a guideline, it is the architecture. There is no apply, patch, delete
 or scale tool anywhere in this codebase, and a test asserts there never is.
 
 ```mermaid
 flowchart LR
-    you["📱 You<br/>web console / PWA"] -- "chat (SSE)" --> jarvis
+    you["📱 You<br/>web console / PWA"] -- "chat (SSE)" --> ultron
 
     subgraph lab["Home lab (k3s)"]
-        jarvis["🤖 Jarvis"]
+        ultron["🤖 Ultron"]
         k8s["Kubernetes API<br/>read-only ClusterRole"]
         prom["Prometheus"]
         loki["Loki"]
@@ -44,12 +44,12 @@ flowchart LR
     gh[("GitHub<br/>infra + app repos")]
     ghcr[("GHCR")]
 
-    jarvis -- read --> k8s & prom & loki & am & argo & ghcr
-    jarvis -- "commit · open PR" --> gh
-    you -- "approve merge" --> jarvis
+    ultron -- read --> k8s & prom & loki & am & argo & ghcr
+    ultron -- "commit · open PR" --> gh
+    you -- "approve merge" --> ultron
     gh -- "GitOps sync" --> argo
     argo == "the only writer" ==> k8s
-    jarvis -. "✗ no apply / patch / delete" .-x k8s
+    ultron -. "✗ no apply / patch / delete" .-x k8s
 ```
 
 ## ✨ Highlights
@@ -111,7 +111,7 @@ make up           # dashboard on :8080
 ## 🧠 How it works
 
 The agent loop is [`quaerium.agents`](https://github.com/gmottola00/quaerium)
-(Quaerium ≥ 0.4), a reusable agent kernel. Jarvis brings the
+(Quaerium ≥ 0.4), a reusable agent kernel. Ultron brings the
 capabilities, the prompts, the router's vocabulary, the policy texts, the model
 catalog and the gateway. To work on both at once: `make quaerium-dev`, then
 `UV_NO_SYNC=1 make check`.
@@ -156,7 +156,7 @@ What "scale tickup to 2" looks like end to end:
 sequenceDiagram
     autonumber
     actor U as You
-    participant J as Jarvis
+    participant J as Ultron
     participant G as GitHub
     participant H as notify-hub
     participant A as ArgoCD
@@ -180,7 +180,7 @@ sequenceDiagram
 
 ## 🧩 Adding a capability
 
-**This is where Jarvis grows.** Three steps, and nothing else changes — not the
+**This is where Ultron grows.** Three steps, and nothing else changes — not the
 graph, not the gate, not the API, not the dashboard.
 
 ```
@@ -267,7 +267,7 @@ web/src/
 
 Everything is `JARVIS_`-prefixed except `ANTHROPIC_API_KEY`. See `.env.example`.
 
-Jarvis starts degraded rather than refusing to boot:
+Ultron starts degraded rather than refusing to boot:
 
 | missing | consequence |
 |---|---|
@@ -281,7 +281,7 @@ Jarvis starts degraded rather than refusing to boot:
 | `JARVIS_LOKI_URL` | `loki__*` tools likewise; `k8s__get_logs` still reads live containers |
 | `JARVIS_ALERTMANAGER_URL` | the alerts page shows an error card; the dashboard's alert count is simply left out |
 | `JARVIS_NOTIFY_URL`, `NOTIFY_TOKEN` | push notifications off; the bell says why |
-| `JARVIS_LITELLM_DB_URL` | Settings shows only Jarvis's own budget; no per-app spend, failures or latency, no gateway problems in Status |
+| `JARVIS_LITELLM_DB_URL` | Settings shows only Ultron's own budget; no per-app spend, failures or latency, no gateway problems in Status |
 
 ### Models and the LLM gateway
 
@@ -300,7 +300,7 @@ While the desktop is off, `local/*` show as offline. A message sent to one
 never silently lands on Claude: the chat answers `model_unavailable`, asks
 whether to use `JARVIS_LOCAL_FALLBACK_MODEL` (default `claude-haiku-4-5`)
 instead, and only then resends with `allow_fallback`. No timeout is waited on —
-Jarvis probes Ollama itself. The answering model is shown under each reply. In
+Ultron probes Ollama itself. The answering model is shown under each reply. In
 the cluster the proxy is `apps/litellm` in Home-Lab-Infra; locally,
 `docker compose --profile gateway up`.
 
@@ -317,19 +317,19 @@ flowchart LR
 
 ### On the phone and notifications
 
-Added to the iPhone Home Screen (Share → Add to Home Screen) Jarvis opens as
+Added to the iPhone Home Screen (Share → Add to Home Screen) Ultron opens as
 **Ultron**, full screen, with its own icon and launch screen. `web/public/sw.js`
 keeps the shell so it never opens blank, and never touches `/api`. Icons and
 launch screens are rendered by `npm run pwa-assets` (needs `google-chrome`).
 
 Push goes through notify-hub, a small lab service that holds the
-VAPID key and the subscribed phones; the phone subscribes via Jarvis
+VAPID key and the subscribed phones; the phone subscribes via Ultron
 (`/api/push/*`), never to the hub, which is cluster-internal.
 
 ```mermaid
 sequenceDiagram
     participant P as iPhone (Ultron PWA)
-    participant J as Jarvis
+    participant J as Ultron
     participant H as notify-hub<br/>(cluster-internal)
     participant S as Apple push service
 
@@ -348,7 +348,7 @@ sequenceDiagram
 - **Bell** in the phone top bar (or "notifications" in the sidebar): turn on, off,
   send a test. On iPhone it works only from the Home Screen app.
 - **A run waiting for approval** pushes "Approval needed"; the tap opens
-  Jarvis → approvals. In the background: the stream never waits on the hub.
+  Ultron → approvals. In the background: the stream never waits on the hub.
 - **From code:** `await svc.notifier.notify("Title", "Body", url="/#status", tag="...")`.
   It never raises: a hub that does not answer logs `notify.failed` and returns `None`.
 
@@ -383,7 +383,7 @@ Planned phases:
 
 ## 🚢 In my home lab
 
-Jarvis runs on the same single-node k3s cluster it operates, managed from
+Ultron runs on the same single-node k3s cluster it operates, managed from
 [**Home-Lab-Infra**](https://github.com/gmottola00/Home-Lab-Infra) (manifests in
 `apps/jarvis`). It is reachable only over the tailnet (`jarvis.<tailnet>.ts.net`),
 reads the cluster through a `jarvis` ServiceAccount bound to the read-only
@@ -398,7 +398,7 @@ flowchart LR
     bump --> argo["ArgoCD sync"] --> pod["new pod"]
 ```
 
-Nothing is applied by hand — the same rule Jarvis itself follows.
+Nothing is applied by hand — the same rule Ultron itself follows.
 
 ---
 
