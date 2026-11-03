@@ -1,29 +1,59 @@
-# Jarvis
+<div align="center">
 
-An agent that operates the home lab. This is **P0 — "hands, no face"**: text only,
-driven from a web console.
+# 🤖 Jarvis
 
-> Jarvis has no `kubectl apply` in its hands. It writes commits and opens pull
-> requests against `Home-Lab-Infra` and the app repos; ArgoCD stays the only thing
+**An AI agent that operates your home lab, without ever touching the cluster.**
+
+[![Backend CI](https://github.com/gmottola00/Jarvis/actions/workflows/backend.yml/badge.svg)](https://github.com/gmottola00/Jarvis/actions/workflows/backend.yml)
+[![Web CI](https://github.com/gmottola00/Jarvis/actions/workflows/web.yml/badge.svg)](https://github.com/gmottola00/Jarvis/actions/workflows/web.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)
+
+[Quick start](#-quick-start) · [How it works](#-how-it-works) · [Add a capability](#-adding-a-capability) · [Configuration](#-configuration) · [Contributing](CONTRIBUTING.md)
+
+</div>
+
+---
+
+Jarvis is **P0 — "hands, no face"**: a text-only agent driven from a web console
+(and installable on your phone). Ask it why a pod is crashing, what changed in
+ArgoCD, or to scale an app, and it reads Kubernetes, Prometheus, Loki, ArgoCD and
+GitHub to answer.
+
+> **Jarvis has no `kubectl apply` in its hands.** It writes commits and opens pull
+> requests against your infra repo and app repos; ArgoCD stays the only thing
 > that changes the cluster, so every action Jarvis takes is diffable and revertible.
 
 That is not a guideline, it is the architecture. There is no apply, patch, delete
 or scale tool anywhere in this codebase, and a test asserts there never is.
 
+## ✨ Highlights
+
+- 🔒 **GitOps-only writes.** Changes are commits and PRs; merging is gated on a human.
+- 🧰 **Pluggable capabilities.** Kubernetes, ArgoCD, GHCR, GitHub, Prometheus, Loki, Alertmanager.
+- 🧪 **Runs offline.** `JARVIS_FAKE_TOOLS=true` serves every tool from fixtures: no cluster, token or API key needed.
+- 📱 **Phone-ready PWA** with push notifications for pending approvals.
+- 🔀 **Model gateway.** Claude, plus local models through a LiteLLM proxy with automatic fallback.
+- ✅ **Tested without an LLM.** The whole agent graph is driven by scripted turns.
+
+> [!WARNING]
+> The console has **no built-in authentication**. Run it behind a private network
+> (e.g. Tailscale) and never expose it to the public internet. See [SECURITY.md](SECURITY.md).
+
 ---
 
-## Prerequisites
+## 📦 Prerequisites
 
 - **Python 3.12** and [uv](https://docs.astral.sh/uv/) — the backend.
-- **Node 22** — only to build the dashboard. Not installed on this machine yet:
-  `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs`,
-  or use [nvm](https://github.com/nvm-sh/nvm).
+- **Node 22** — only to build the dashboard. Install it with
+  [nvm](https://github.com/nvm-sh/nvm) or your package manager.
 - **Docker** — only for `make up`. The backend runs fine without it.
 
 `web/dist/` is already built, so `make run-api` serves the dashboard on :8100
 before Node is installed. Node is needed to change the dashboard.
 
-## Quick start
+## 🚀 Quick start
 
 Nothing below needs a cluster, a token, or even an API key to run.
 
@@ -54,10 +84,10 @@ make up           # dashboard on :8080
 
 ---
 
-## How it works
+## 🧠 How it works
 
 The agent loop is [`quaerium.agents`](https://github.com/gmottola00/quaerium)
-(Quaerium ≥ 0.4), the same kernel [Alfred](../Alfred) runs on. Jarvis brings the
+(Quaerium ≥ 0.4), a reusable agent kernel. Jarvis brings the
 capabilities, the prompts, the router's vocabulary, the policy texts, the model
 catalog and the gateway. To work on both at once: `make quaerium-dev`, then
 `UV_NO_SYNC=1 make check`.
@@ -80,7 +110,7 @@ router ──▶ model ──▶ gate ──▶ act ──┐
 - **act** — cleared calls run concurrently and every result comes back in a
   single message.
 
-The policy, from the design doc:
+The policy:
 
 | risk | meaning | what happens |
 |---|---|---|
@@ -88,12 +118,11 @@ The policy, from the design doc:
 | `write` | commit or pull request — never the cluster | runs immediately |
 | `destructive` | hard to reverse | suspends and asks |
 
-`github__merge_pr` is destructive on purpose. Merging is what ships, and the design
-doc is explicit that this gate never gets automated.
+`github__merge_pr` is destructive on purpose. Merging is what ships; that gate is never automated.
 
 ---
 
-## Adding a capability
+## 🧩 Adding a capability
 
 **This is where Jarvis grows.** Three steps, and nothing else changes — not the
 graph, not the gate, not the API, not the dashboard.
@@ -143,7 +172,7 @@ a standalone MCP server an adapter rather than a rewrite.
 
 ---
 
-## Layout
+## 🗂️ Layout
 
 ```
 src/jarvis/
@@ -164,7 +193,7 @@ web/src/
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 Everything is `JARVIS_`-prefixed except `ANTHROPIC_API_KEY`. See `.env.example`.
 
@@ -209,7 +238,7 @@ Added to the iPhone Home Screen (Share → Add to Home Screen) Jarvis opens as
 keeps the shell so it never opens blank, and never touches `/api`. Icons and
 launch screens are rendered by `npm run pwa-assets` (needs `google-chrome`).
 
-Push goes through [notify-hub](../Notify-Hub), the lab service that holds the
+Push goes through notify-hub, a small lab service that holds the
 VAPID key and the subscribed phones; the phone subscribes via Jarvis
 (`/api/push/*`), never to the hub, which is cluster-internal.
 
@@ -222,7 +251,7 @@ VAPID key and the subscribed phones; the phone subscribes via Jarvis
 
 ---
 
-## Testing
+## 🧪 Testing
 
 ```bash
 make check        # black, isort, ruff, mypy --strict, pytest
@@ -240,9 +269,9 @@ Python test missed, because httpx normalises line endings and `fetch` does not.
 
 ---
 
-## What comes next
+## 🛣️ Roadmap
 
-Per the build order in the design deck:
+Planned phases:
 
 - **P1 — voice.** Push-to-talk → Pipecat + whisper + Piper.
 - **P2 — GPU on demand.** The desktop joins as a k3s agent, woken by WoL.
@@ -253,3 +282,14 @@ Deploying Jarvis onto the cluster itself is mechanical once the flow works here:
 `apps/jarvis/` with the usual seven files, `bootstrap/apps/jarvis.yaml`, secrets
 sealed with `kubeseal --controller-namespace kube-system`, and an Ingress with
 `ingressClassName: tailscale` and `tls.hosts: [jarvis]`.
+
+---
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first,
+and report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## 📄 License
+
+[MIT](LICENSE) © Gianmarco Mottola
