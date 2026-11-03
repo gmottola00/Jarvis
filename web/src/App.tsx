@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ICONS, Sidebar } from "./components/shell/Sidebar";
+import { TabBar } from "./components/shell/TabBar";
 import { clearSession } from "./lib/api";
 import { LearnModeProvider } from "./lib/hooks/useLearnMode";
 import { StatusProvider, useStatus } from "./lib/hooks/useStatus";
@@ -23,6 +24,9 @@ const TABS = [
   { id: "delivery", label: "delivery", icon: ICONS.delivery },
   { id: "jarvis", label: "ultron", icon: ICONS.jarvis },
 ] as const;
+
+/** The phone has no rail footer: settings is a fifth tab in the bottom bar. */
+const PHONE_TABS = [...TABS, { id: "settings", label: "settings", icon: ICONS.settings }] as const;
 
 type Tab = (typeof TABS)[number]["id"] | "settings";
 
@@ -72,6 +76,8 @@ function Shell() {
         {tab === "jarvis" && <Jarvis tab={section} chatKey={chatKey} />}
         {tab === "settings" && <Settings />}
       </main>
+
+      <TabBar items={PHONE_TABS} active={tab} onSelect={(id) => navigate(id)} badges={badges} />
     </div>
   );
 }

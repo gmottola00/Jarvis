@@ -19,7 +19,7 @@ export function SectionTabs<T extends string>({
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-ink-850 bg-ink-950 px-4 py-1.5 sm:px-8">
+      <div className="shrink-0 border-b border-ink-850 bg-ink-950 px-3 py-1 sm:px-8 sm:py-1.5">
         <BracketTabs tabs={tabs} value={value} onChange={onChange} />
       </div>
       <div className="min-h-0 flex-1">{children}</div>

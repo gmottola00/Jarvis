@@ -40,7 +40,7 @@ export function HudPage({
     <div className="relative h-full">
       <HudBackdrop />
       <div className="relative h-full overflow-y-auto">
-        <div className="mx-auto max-w-7xl space-y-4 px-3 pt-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:space-y-6 sm:px-8 sm:pt-6">
+        <div className="mx-auto max-w-7xl space-y-4 px-3 pt-4 pb-6 sm:space-y-6 md:pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:px-8 sm:pt-6">
           {/* On a phone the top bar already carries the core: the title starts
               the page, and the status line and actions share one row under it. */}
           <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -48,7 +48,7 @@ export function HudPage({
               <UltronCore size={44} live={live} />
             </span>
             <div className="min-w-0 flex-1 sm:flex-none">
-              <h2 className="glow-red font-display text-2xl leading-none font-bold tracking-[0.25em] [overflow-wrap:anywhere] text-ultron-400 uppercase sm:text-3xl sm:tracking-[0.35em]">
+              <h2 className="glow-red font-display text-[1.375rem] leading-tight font-bold tracking-[0.18em] [overflow-wrap:anywhere] text-ultron-400 uppercase sm:text-3xl sm:tracking-[0.35em]">
                 {title}
               </h2>
               {subtitle && <p className="mt-1.5 text-xs text-pretty text-ink-500">{subtitle}</p>}

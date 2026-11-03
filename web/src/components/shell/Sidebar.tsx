@@ -2,7 +2,6 @@ import {
   Bell,
   GraduationCap,
   HeartPulse,
-  Menu,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
@@ -10,7 +9,6 @@ import {
   Settings,
   SquarePen,
   Server,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -44,8 +42,8 @@ function storedCollapsed(): boolean {
 
 /**
  * The left rail: four questions — is everything fine, what runs, what ships,
- * ask Ultron — and settings in the footer. Collapsed it is icons only; on a
- * phone it is an overlay drawer opened from the top bar.
+ * ask Ultron — and settings in the footer. Collapsed it is icons only. A
+ * phone gets a slim top bar here and the sections in the bottom `TabBar`.
  */
 export function Sidebar<T extends string>({
   items,
@@ -67,7 +65,6 @@ export function Sidebar<T extends string>({
   onNewChat: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(storedCollapsed);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const learn = useLearnMode();
 
@@ -97,10 +94,7 @@ export function Sidebar<T extends string>({
       <button
         type="button"
         title={narrow ? "New chat" : undefined}
-        onClick={() => {
-          onNewChat();
-          setMobileOpen(false);
-        }}
+        onClick={() => onNewChat()}
         className={`mb-3 flex w-full items-center gap-3 border border-ultron-800 bg-ultron-500/5 py-2 text-ultron-300 transition hover:border-ultron-500 hover:bg-ultron-500/15 hover:shadow-[0_0_14px_-4px_var(--color-ultron-500)] ${
           narrow ? "justify-center px-0" : "px-2.5"
         }`}
@@ -119,10 +113,7 @@ export function Sidebar<T extends string>({
               type="button"
               title={narrow ? item.label : undefined}
               aria-current={current ? "page" : undefined}
-              onClick={() => {
-                onSelect(item.id);
-                setMobileOpen(false);
-              }}
+              onClick={() => onSelect(item.id)}
               className={`group relative flex w-full items-center gap-3 rounded-md py-2 text-left transition-colors ${
                 narrow ? "justify-center px-0" : "px-2.5"
               } ${
@@ -153,10 +144,7 @@ export function Sidebar<T extends string>({
       <div className="mt-auto space-y-1 border-t border-ink-850 pt-2">
         <button
           type="button"
-          onClick={() => {
-            settings.onSelect();
-            setMobileOpen(false);
-          }}
+          onClick={() => settings.onSelect()}
           aria-current={settings.active ? "page" : undefined}
           title="Models, GPU host and budget"
           className={`flex w-full items-center gap-3 rounded-md py-2 ${narrow ? "justify-center" : "px-2.5"} ${
@@ -168,10 +156,7 @@ export function Sidebar<T extends string>({
         </button>
         <button
           type="button"
-          onClick={() => {
-            setPushOpen(true);
-            setMobileOpen(false);
-          }}
+          onClick={() => setPushOpen(true)}
           title="Notifications on this device"
           className={`flex w-full items-center gap-3 rounded-md py-2 text-ink-600 hover:text-ink-300 ${
             narrow ? "justify-center" : "px-2.5"
@@ -209,44 +194,41 @@ export function Sidebar<T extends string>({
 
   return (
     <>
-      {/* Phone: a top bar with the menu button; the rail slides over the page. */}
+      {/* Phone: a top bar with the brand and the quick actions; the sections are in the bottom tab bar. */}
       {/* Installed on an iPhone the page runs under the status bar: pad past it. */}
-      <div className="flex items-center gap-3 border-b border-ink-850 bg-ink-950 px-4 pt-[max(env(safe-area-inset-top),0.5rem)] pb-2 md:hidden">
-        <button type="button" aria-label="Open menu" onClick={() => setMobileOpen(true)} className="text-ink-400">
-          <Menu className="size-5" />
-        </button>
-        <UltronCore size={20} />
-        <span className="glow-red font-display text-base font-bold tracking-[0.3em] text-ultron-400">ULTRON</span>
-        <button
-          type="button"
-          aria-label="Notifications"
-          onClick={() => setPushOpen(true)}
-          className="ml-auto text-ink-400"
-        >
-          <Bell className="size-5" />
-        </button>
-      </div>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-ink-850 bg-ink-950 pt-[max(env(safe-area-inset-top),0.375rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-1.5 pl-[max(env(safe-area-inset-left),1rem)] md:hidden">
+        <UltronCore size={22} />
+        <span className="glow-red font-display text-lg font-bold tracking-[0.3em] text-ultron-400">ULTRON</span>
+        <div className="ml-auto flex items-center">
           <button
             type="button"
-            aria-label="Close menu"
-            className="absolute inset-0 bg-ink-950/80 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="relative h-full w-64 border-r border-ultron-900 bg-ink-950 pt-[env(safe-area-inset-top)]">
-            <button
-              type="button"
-              aria-label="Close menu"
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-[calc(env(safe-area-inset-top)+1rem)] right-3 text-ink-600"
-            >
-              <X className="size-4" />
-            </button>
-            {rail(false)}
-          </aside>
+            aria-label="New chat"
+            onClick={onNewChat}
+            className="grid size-10 place-items-center rounded-full text-ultron-300 transition active:scale-90 active:bg-ultron-500/15"
+          >
+            <SquarePen className="size-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Learn mode"
+            aria-pressed={learn.on}
+            onClick={learn.toggle}
+            className={`grid size-10 place-items-center rounded-full transition active:scale-90 active:bg-ink-850 ${
+              learn.on ? "text-cyan-300" : "text-ink-400"
+            }`}
+          >
+            <GraduationCap className="size-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Notifications"
+            onClick={() => setPushOpen(true)}
+            className="grid size-10 place-items-center rounded-full text-ink-400 transition active:scale-90 active:bg-ink-850"
+          >
+            <Bell className="size-5" />
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Desktop: a rail that collapses to icons. */}
       <aside
