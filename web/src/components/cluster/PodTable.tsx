@@ -19,18 +19,18 @@ export function PodTable({
 }) {
   const columns: Column<PodDetail>[] = [
     ...(showNamespace ? [{ key: "ns", header: "namespace", cell: (p: PodDetail) => <span className="text-ink-600">{p.namespace}</span> }] : []),
-    { key: "name", header: "name", cell: (p) => <span className="text-ink-200">{p.name}</span> },
+    { key: "name", header: "name", card: "title", cell: (p) => <span className="text-ink-200">{p.name}</span> },
     { key: "ready", header: "ready", cell: (p) => p.ready },
-    { key: "status", header: "status", cell: (p) => <StateBadge tone={podTone(p)} state={podStatus(p)} /> },
+    { key: "status", header: "status", card: "status", cell: (p) => <StateBadge tone={podTone(p)} state={podStatus(p)} /> },
     {
       key: "restarts",
       header: "restarts",
       className: "text-right",
       cell: (p) => <span className={p.restarts ? "text-amber-300" : "text-ink-600"}>{p.restarts}</span>,
     },
-    { key: "ip", header: "ip", cell: (p) => p.pod_ip || <span className="text-ink-800">none</span> },
+    { key: "ip", header: "ip", card: "hide", cell: (p) => p.pod_ip || <span className="text-ink-800">none</span> },
     { key: "node", header: "node", cell: (p) => <span className="text-ink-600">{p.node || "unscheduled"}</span> },
-    { key: "qos", header: "qos", cell: (p) => <span className="text-ink-600">{p.qos}</span> },
+    { key: "qos", header: "qos", card: "hide", cell: (p) => <span className="text-ink-600">{p.qos}</span> },
     { key: "age", header: "age", className: "text-right", cell: (p) => age(p.age) },
   ];
 

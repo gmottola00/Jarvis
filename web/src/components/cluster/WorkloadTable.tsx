@@ -12,10 +12,11 @@ export function WorkloadTable({ workloads, onSelect }: { workloads: WorkloadSumm
   const columns: Column<WorkloadSummary>[] = [
     { key: "ns", header: "namespace", cell: (w) => <span className="text-ink-600">{w.namespace}</span> },
     { key: "kind", header: "kind", cell: (w) => <span className="text-ink-600">{KIND_SHORT[w.kind]}</span> },
-    { key: "name", header: "name", cell: (w) => <span className="text-ink-200">{w.name}</span> },
+    { key: "name", header: "name", card: "title", cell: (w) => <span className="text-ink-200">{w.name}</span> },
     {
       key: "ready",
       header: "ready",
+      card: "status",
       cell: (w) => (
         <Badge tone={workloadTone(w)}>
           {w.ready}/{w.desired}
@@ -28,7 +29,7 @@ export function WorkloadTable({ workloads, onSelect }: { workloads: WorkloadSumm
       className: "text-right",
       cell: (w) => <span className={w.updated < w.desired ? "text-amber-300" : ""}>{w.updated}</span>,
     },
-    { key: "available", header: "available", className: "text-right", cell: (w) => w.available },
+    { key: "available", header: "available", card: "hide", className: "text-right", cell: (w) => w.available },
     {
       key: "images",
       header: "images",

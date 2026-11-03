@@ -7,7 +7,7 @@ import { latency, usd } from "./format";
 /** Every model any app called in the window: volume, failures, latency and cost. */
 export function ModelUsageTable({ models, windowLabel }: { models: ModelUsage[]; windowLabel: string }) {
   const columns: Column<ModelUsage>[] = [
-    { key: "model", header: "model", cell: (m) => <span className="text-ink-200">{m.model}</span> },
+    { key: "model", header: "model", card: "title", cell: (m) => <span className="text-ink-200">{m.model}</span> },
     { key: "req", header: "requests", className: "text-right", cell: (m) => m.requests },
     {
       key: "fail",
@@ -15,9 +15,9 @@ export function ModelUsageTable({ models, windowLabel }: { models: ModelUsage[];
       className: "text-right",
       cell: (m) => <span className={m.failures ? "text-amber-300" : "text-ink-600"}>{m.failures}</span>,
     },
-    { key: "p50", header: "p50", className: "text-right", cell: (m) => latency(m.p50_ms) },
+    { key: "p50", header: "p50", card: "hide", className: "text-right", cell: (m) => latency(m.p50_ms) },
     { key: "p95", header: "p95", className: "text-right", cell: (m) => latency(m.p95_ms) },
-    { key: "ttft", header: "1st token", className: "text-right", cell: (m) => latency(m.ttft_p50_ms) },
+    { key: "ttft", header: "1st token", card: "hide", className: "text-right", cell: (m) => latency(m.ttft_p50_ms) },
     {
       key: "tok",
       header: "tokens in / out",
