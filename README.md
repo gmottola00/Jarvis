@@ -10,7 +10,7 @@
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)
 
-[Quick start](#-quick-start) · [How it works](#-how-it-works) · [Add a capability](#-adding-a-capability) · [Configuration](#-configuration) · [Contributing](CONTRIBUTING.md)
+[Quick start](#-quick-start) · [How it works](#-how-it-works) · [Add a capability](#-adding-a-capability) · [Configuration](#-configuration) · [In my home lab](#-in-my-home-lab) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -28,13 +28,37 @@ GitHub to answer.
 That is not a guideline, it is the architecture. There is no apply, patch, delete
 or scale tool anywhere in this codebase, and a test asserts there never is.
 
+```mermaid
+flowchart LR
+    you["📱 You<br/>web console / PWA"] -- "chat (SSE)" --> jarvis
+
+    subgraph lab["Home lab (k3s)"]
+        jarvis["🤖 Jarvis"]
+        k8s["Kubernetes API<br/>read-only ClusterRole"]
+        prom["Prometheus"]
+        loki["Loki"]
+        am["Alertmanager"]
+        argo["ArgoCD"]
+    end
+
+    gh[("GitHub<br/>infra + app repos")]
+    ghcr[("GHCR")]
+
+    jarvis -- read --> k8s & prom & loki & am & argo & ghcr
+    jarvis -- "commit · open PR" --> gh
+    you -- "approve merge" --> jarvis
+    gh -- "GitOps sync" --> argo
+    argo == "the only writer" ==> k8s
+    jarvis -. "✗ no apply / patch / delete" .-x k8s
+```
+
 ## ✨ Highlights
 
 - 🔒 **GitOps-only writes.** Changes are commits and PRs; merging is gated on a human.
 - 🧰 **Pluggable capabilities.** Kubernetes, ArgoCD, GHCR, GitHub, Prometheus, Loki, Alertmanager.
 - 🧪 **Runs offline.** `JARVIS_FAKE_TOOLS=true` serves every tool from fixtures: no cluster, token or API key needed.
 - 📱 **Phone-ready PWA** with push notifications for pending approvals.
-- 🔀 **Model gateway.** Claude, plus local models through a LiteLLM proxy with automatic fallback.
+- 🔀 **Model gateway.** Claude, plus local models through a LiteLLM proxy; falls back to Claude only with your consent.
 - ✅ **Tested without an LLM.** The whole agent graph is driven by scripted turns.
 
 > [!WARNING]
@@ -92,12 +116,18 @@ capabilities, the prompts, the router's vocabulary, the policy texts, the model
 catalog and the gateway. To work on both at once: `make quaerium-dev`, then
 `UV_NO_SYNC=1 make check`.
 
-```
-router ──▶ model ──▶ gate ──▶ act ──┐
-             ▲                       │
-             └───────────────────────┘
-             │
-             └──▶ answer
+```mermaid
+flowchart LR
+    msg(["user message"]) --> router
+    router{"router"} -- "small talk:<br/>no tools, low effort" --> model
+    router -- "everything else:<br/>full tool surface" --> model
+    model["model<br/>streamed"] -- "tool calls" --> gate{"gate"}
+    model -- "no tool calls" --> answer(["answer"])
+    gate -- "read / write" --> act["act<br/>concurrent calls"]
+    gate -- destructive --> wait["⏸ interrupt<br/>checkpointed"]
+    wait -- "approved" --> act
+    wait -- "rejected" --> model
+    act -- "all results,<br/>one message" --> model
 ```
 
 - **router** — small talk gets no tools and low effort; everything else gets the
@@ -119,6 +149,32 @@ The policy:
 | `destructive` | hard to reverse | suspends and asks |
 
 `github__merge_pr` is destructive on purpose. Merging is what ships; that gate is never automated.
+
+What "scale tickup to 2" looks like end to end:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as You
+    participant J as Jarvis
+    participant G as GitHub
+    participant H as notify-hub
+    participant A as ArgoCD
+
+    U->>J: "scale tickup to 2"
+    J->>G: github__set_replicas (write)
+    G-->>J: PR 42 opened
+    J->>G: github__check_runs (read)
+    J->>J: github__merge_pr → gate: destructive
+    Note over J: run suspended (interrupt),<br/>checkpoint in Postgres
+    J-)H: "Approval needed"
+    H-)U: push to the phone
+    U->>J: approve (even after a restart)
+    J->>G: merge PR 42
+    A->>G: sync main
+    A->>A: rollout tickup, replicas: 2
+    J-->>U: done, with the PR link
+```
 
 ---
 
@@ -153,6 +209,20 @@ module to `CAPABILITIES` in `src/jarvis/tools/__init__.py`. Done.
 A capability may import from `jarvis.core`, `jarvis.settings` and `jarvis.tools` —
 never from `jarvis.agent` or `jarvis.api`. That is what keeps lifting one out into
 a standalone MCP server an adapter rather than a rewrite.
+
+```mermaid
+flowchart TD
+    api["jarvis.api<br/>FastAPI, SSE"] --> agent["jarvis.agent<br/>prompts, policy, models"]
+    api --> tools
+    agent --> tools
+    agent --> kernel["quaerium.agents<br/>graph, gate, runner"]
+    subgraph tools["jarvis.tools.#lt;name#gt;"]
+        t["tools.py"] --> c["client.py"] & f["fake.py"]
+    end
+    tools --> core["jarvis.core<br/>no I/O"] & settings["jarvis.settings"]
+    tools -. "✗ never" .-x agent
+    tools -. "✗ never" .-x api
+```
 
 ### What ships today
 
@@ -226,10 +296,24 @@ that key may call:
   with a trimmed request. Their thinking is streamed but not kept in history,
   since a later Claude turn would reject an unsigned thinking block.
 
-While the desktop is off, `local/*` show as offline and a message sent to one
-is answered by `JARVIS_LOCAL_FALLBACK_MODEL` without waiting on a timeout. The
-answering model is shown under each reply. In the cluster the proxy is
-`apps/litellm` in Home-Lab-Infra; locally, `docker compose --profile gateway up`.
+While the desktop is off, `local/*` show as offline. A message sent to one
+never silently lands on Claude: the chat answers `model_unavailable`, asks
+whether to use `JARVIS_LOCAL_FALLBACK_MODEL` (default `claude-haiku-4-5`)
+instead, and only then resends with `allow_fallback`. No timeout is waited on —
+Jarvis probes Ollama itself. The answering model is shown under each reply. In
+the cluster the proxy is `apps/litellm` in Home-Lab-Infra; locally,
+`docker compose --profile gateway up`.
+
+```mermaid
+flowchart LR
+    pick["model picker<br/>GET /api/models"] --> kind{"model?"}
+    kind -- "claude-*" --> pass["LiteLLM /anthropic<br/>pass-through"] --> anth["Anthropic"]
+    kind -- "local/*" --> gpu{"Ollama answers?<br/>/api/ps probe"}
+    gpu -- yes --> msgs["LiteLLM /v1/messages<br/>trimmed request"] --> ollama["Ollama<br/>GPU desktop"]
+    gpu -- no --> ask["model_unavailable<br/>ask the user"]
+    ask -- "allow_fallback" --> fb["JARVIS_LOCAL_FALLBACK_MODEL"] --> pass
+    ask -- "no" --> stop(["nothing sent"])
+```
 
 ### On the phone and notifications
 
@@ -241,6 +325,25 @@ launch screens are rendered by `npm run pwa-assets` (needs `google-chrome`).
 Push goes through notify-hub, a small lab service that holds the
 VAPID key and the subscribed phones; the phone subscribes via Jarvis
 (`/api/push/*`), never to the hub, which is cluster-internal.
+
+```mermaid
+sequenceDiagram
+    participant P as iPhone (Ultron PWA)
+    participant J as Jarvis
+    participant H as notify-hub<br/>(cluster-internal)
+    participant S as Apple push service
+
+    P->>J: GET /api/push/key
+    J->>H: GET /v1/vapid-public-key
+    P->>P: pushManager.subscribe(key)
+    P->>J: PUT /api/push/subscription
+    J->>H: PUT /v1/subscriptions
+    Note over J: a run suspends for approval
+    J-)H: POST /v1/notify "Approval needed"
+    Note over J: the SSE stream never waits on the hub
+    H->>S: encrypted, VAPID-signed
+    S-->>P: notification → tap opens approvals
+```
 
 - **Bell** in the phone top bar (or "notifications" in the sidebar): turn on, off,
   send a test. On iPhone it works only from the Home Screen app.
@@ -278,10 +381,24 @@ Planned phases:
 - **P3 — vision and gesture.**
 - **P4 — autonomy.** `mcp-coder`, preview namespaces per PR.
 
-Deploying Jarvis onto the cluster itself is mechanical once the flow works here:
-`apps/jarvis/` with the usual seven files, `bootstrap/apps/jarvis.yaml`, secrets
-sealed with `kubeseal --controller-namespace kube-system`, and an Ingress with
-`ingressClassName: tailscale` and `tls.hosts: [jarvis]`.
+## 🚢 In my home lab
+
+Jarvis runs on the same single-node k3s cluster it operates, managed from
+[**Home-Lab-Infra**](https://github.com/gmottola00/Home-Lab-Infra) (manifests in
+`apps/jarvis`). It is reachable only over the tailnet (`jarvis.<tailnet>.ts.net`),
+reads the cluster through a `jarvis` ServiceAccount bound to the read-only
+ClusterRole `jarvis-reader` (no access to Secrets), and calls models through the
+lab's LiteLLM gateway with its own budgeted virtual key.
+
+```mermaid
+flowchart LR
+    push["git push main"] --> ci["CI: make check<br/>(backend / web)"]
+    ci --> build["image<br/>ghcr.io/gmottola00/jarvis-backend:sha"]
+    build --> bump["bump newTag in<br/>Home-Lab-Infra/apps/jarvis"]
+    bump --> argo["ArgoCD sync"] --> pod["new pod"]
+```
+
+Nothing is applied by hand — the same rule Jarvis itself follows.
 
 ---
 
