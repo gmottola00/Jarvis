@@ -1,7 +1,7 @@
 # Jarvis
 
 An agent that operates the home lab. This is **P0 — "hands, no face"**: text only,
-driven from a web console, exactly as scoped in `Home Lab Infrastructure Diagram.pdf`.
+driven from a web console.
 
 > Jarvis has no `kubectl apply` in its hands. It writes commits and opens pull
 > requests against `Home-Lab-Infra` and the app repos; ArgoCD stays the only thing
