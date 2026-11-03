@@ -31,10 +31,18 @@
 }
 
 html,
-body,
-#root {
+body {
   height: 100%;
-  height: 100dvh;
+}
+
+/* Pinned to the screen's edges rather than sized by height: an installed
+ * iPhone app (black-translucent status bar) mis-measures 100% and 100dvh,
+ * leaving a strip under the tab bar and letting the page slide under the
+ * status bar. A fixed box always covers the whole screen, and the window
+ * itself never scrolls. */
+#root {
+  position: fixed;
+  inset: 0;
 }
 
 body {

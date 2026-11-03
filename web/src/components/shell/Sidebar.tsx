@@ -196,7 +196,7 @@ export function Sidebar<T extends string>({
     <>
       {/* Phone: a top bar with the brand and the quick actions; the sections are in the bottom tab bar. */}
       {/* Installed on an iPhone the page runs under the status bar: pad past it. */}
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-ink-850 bg-ink-950 pt-[max(env(safe-area-inset-top),0.375rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-1.5 pl-[max(env(safe-area-inset-left),1rem)] md:hidden">
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-ink-850 bg-ink-950 pt-[max(env(safe-area-inset-top),0.75rem)] pr-[max(env(safe-area-inset-right),0.5rem)] pb-2 pl-[max(env(safe-area-inset-left),1rem)] md:hidden">
         <UltronCore size={22} />
         <span className="glow-red font-display text-lg font-bold tracking-[0.3em] text-ultron-400">ULTRON</span>
         <div className="ml-auto flex items-center">
