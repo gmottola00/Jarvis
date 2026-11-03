@@ -21,3 +21,6 @@ web/dist/
 pgdata/
 *.tsbuildinfo
 .smoke.pid
+
+# Private docs
+docs/*.pdf
