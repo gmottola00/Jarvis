@@ -259,7 +259,7 @@ export function IconButton({ onClick, label, children }: { onClick: () => void; 
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded-md px-2 py-1 font-mono text-[10px] text-ink-600 ring-1 ring-ink-850 hover:text-ink-200 hover:ring-ink-800"
+      className="rounded-md px-2.5 py-2 font-mono text-[10px] text-ink-600 ring-1 ring-ink-850 md:px-2 md:py-1 hover:text-ink-200 hover:ring-ink-800"
     >
       {children}
     </button>

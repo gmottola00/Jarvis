@@ -28,7 +28,7 @@ export function Readouts({ readouts }: { readouts: Readout[] }) {
           key={r.label}
           className={`flex min-w-0 flex-col gap-1.5 border-b-2 border-b-transparent bg-ink-900 bg-linear-to-b from-ultron-500/6 to-transparent to-70% px-4 py-4 sm:px-6 sm:py-5 ${UNDERLINE[r.tone] ?? ""}`}
         >
-          <p className="flex items-center gap-2 font-mono text-[10px] font-medium tracking-[0.15em] whitespace-nowrap text-ink-500 uppercase sm:tracking-[0.2em]">
+          <p className="flex items-center gap-2 font-mono text-[10px] font-medium tracking-[0.12em] text-ink-500 uppercase sm:tracking-[0.2em] md:whitespace-nowrap">
             <GlowDot tone={r.tone} size="sm" />
             {r.label}
           </p>

@@ -82,19 +82,20 @@ function Resources({ requests, limits }: { requests: Record<string, string>; lim
   return (
     <div>
       <p className="mb-1 font-mono text-[10px] text-ink-600 uppercase">resources</p>
+      <div className="overflow-x-auto">
       <table className="font-mono text-[11px]">
         <thead>
           <tr className="text-[10px] text-ink-600">
-            <th className="pr-6 text-left font-normal" />
-            <th className="pr-6 text-left font-normal">request (reserved)</th>
+            <th className="pr-3 text-left font-normal sm:pr-6" />
+            <th className="pr-3 text-left font-normal sm:pr-6">request (reserved)</th>
             <th className="text-left font-normal">limit (enforced)</th>
           </tr>
         </thead>
         <tbody>
           {keys.map((key) => (
             <tr key={key}>
-              <td className="pr-6 text-ink-600">{key}</td>
-              <td className="pr-6 text-ink-200">{requests[key] ?? <span className="text-amber-300/80">none</span>}</td>
+              <td className="pr-3 align-top text-ink-600 sm:pr-6">{key}</td>
+              <td className="pr-3 align-top text-ink-200 sm:pr-6">{requests[key] ?? <span className="text-amber-300/80">none</span>}</td>
               <td className="text-ink-200">
                 {limits[key] ?? (
                   <span className="text-ink-600">{key === "cpu" ? "none · can burst, never killed for CPU" : "none · can use the whole node"}</span>
@@ -104,6 +105,7 @@ function Resources({ requests, limits }: { requests: Record<string, string>; lim
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

@@ -52,7 +52,7 @@ function UserMessage({ message }: { message: Message }) {
     <div className="flex justify-end">
       <div className="max-w-[85%] space-y-1">
         <p className="text-right font-mono text-[10px] tracking-widest text-ink-600 uppercase">you</p>
-        <p className="border-r-2 border-ultron-500 bg-ink-850/70 px-3.5 py-2 text-sm whitespace-pre-wrap text-ink-200">
+        <p className="border-r-2 border-ultron-500 bg-ink-850/70 px-3.5 py-2 text-sm whitespace-pre-wrap [overflow-wrap:anywhere] text-ink-200">
           {message.text}
         </p>
       </div>

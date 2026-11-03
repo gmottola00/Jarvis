@@ -132,7 +132,7 @@ export function LogViewer({ source }: { source: LogSource }) {
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder="filter…"
-          className="min-w-0 flex-1 rounded-md border border-ink-850 bg-ink-900 px-2 py-1 font-mono text-[11px] text-ink-200 placeholder:text-ink-800 focus:border-ink-600 focus:outline-none"
+          className="min-w-0 flex-1 basis-full rounded-md border border-ink-850 bg-ink-900 px-2 py-1.5 font-mono text-[11px] sm:basis-auto sm:py-1 text-ink-200 placeholder:text-ink-800 focus:border-ink-600 focus:outline-none"
         />
         <Toggle on={probes} onChange={setProbes} label="probes" title="Show kubelet health-probe lines (GET /health, kube-probe)" />
         {source.kind === "pod" && (

@@ -103,7 +103,7 @@ function Problems({ problems }: { problems: Problem[] }) {
   }
   return (
     <HudPanel title="Problems" note={problems.length} flush>
-      <Learn topic="events" className="mx-5 mt-3" />
+      <Learn topic="events" className="mx-3 mt-3 sm:mx-5" />
       <ul className="divide-y divide-ink-850">
         {problems.map((p) => (
           <ProblemRow key={p.id} problem={p} />

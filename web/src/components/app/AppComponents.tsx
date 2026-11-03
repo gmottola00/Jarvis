@@ -26,7 +26,7 @@ export function AppComponents({
             key={w.name}
             type="button"
             onClick={() => onSelect({ kind: "workload", namespace: w.namespace, name: w.name })}
-            className="flex items-center gap-2.5 border border-ultron-500/22 bg-ink-900/85 px-3 py-2 text-left hover:border-ultron-500/50"
+            className="flex max-w-full flex-wrap items-center gap-x-2.5 gap-y-1 border border-ultron-500/22 bg-ink-900/85 px-3 py-2 text-left hover:border-ultron-500/50"
           >
             <GlowDot tone={tone} size="sm" />
             <span className="font-display text-sm font-semibold tracking-[0.12em] text-ink-200">{shortName(w.name, w.namespace)}</span>

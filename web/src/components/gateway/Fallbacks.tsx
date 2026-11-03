@@ -13,11 +13,11 @@ export function Fallbacks({ runs }: { runs: RunSummary[] }) {
         <ul>
           {fallbacks.map((r) => (
             <li key={r.run_id} className="flex flex-col gap-1 border-b border-ink-850 px-4 sm:px-5 py-2.5">
-              <p className="flex gap-2 font-mono text-xs text-ink-200">
+              <p className="flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-xs [overflow-wrap:anywhere] text-ink-200">
                 {r.model} <span className="text-amber-300">→</span> {r.served_by}
                 <span className="ml-auto text-[11px] text-ink-600">{stamp(r.started_at)}</span>
               </p>
-              <p className="truncate text-xs text-ink-500" title={r.prompt}>
+              <p className="line-clamp-2 text-xs text-ink-500 md:line-clamp-none md:truncate" title={r.prompt}>
                 {r.prompt}
               </p>
             </li>

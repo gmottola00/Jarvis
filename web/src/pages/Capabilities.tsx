@@ -1,10 +1,12 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { BracketTabs, GlowDot, HudCard, HudPage, HudPanel, Leader, LiveStamp, Quiet, Readouts, RefreshButton, type Readout } from "../components/hud";
 import { RISK_TONE } from "../components/runs/status";
+import { Drawer } from "../components/ui/Drawer";
 import { ErrorNote, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
 import { api } from "../lib/api";
 import { elapsed, stamp } from "../lib/format";
+import { useMediaQuery, WIDE } from "../lib/hooks/useMediaQuery";
 import { usePolling } from "../lib/hooks/usePolling";
 import type { Capabilities as Caps, RiskLevel, SchemaProperty, ToolInfo, ToolUsage } from "../lib/types";
 
@@ -29,15 +31,10 @@ export function Capabilities() {
   const { data, error, loading, refresh, refreshing } = usePolling(api.capabilities, POLL_MS);
   const [filter, setFilter] = useState<Filter>("all");
   const [picked, setPicked] = useState<string | null>(null);
-  const detail = useRef<HTMLDivElement>(null);
-
-  /** Below xl the detail sits under the whole list: bring it up, or a tap seems to do nothing. */
-  function pick(name: string) {
-    setPicked(name);
-    if (!window.matchMedia("(min-width: 80rem)").matches) {
-      requestAnimationFrame(() => detail.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    }
-  }
+  // Side by side the detail sits next to the list; narrower it opens in a
+  // sheet on a tap, so the list keeps your place.
+  const wide = useMediaQuery(WIDE);
+  const pick = setPicked;
 
   const all = data ? namespaces(data).flatMap(([, tools]) => tools) : [];
   const usage = (tool: ToolInfo) => data?.usage[tool.name] ?? NONE;
@@ -75,7 +72,7 @@ export function Capabilities() {
               value={filter}
               onChange={setFilter}
             />
-            <span className="ml-auto font-mono text-[11px] text-ink-600">select a tool to see its parameters</span>
+            <span className="hidden font-mono text-[11px] text-ink-600 sm:ml-auto sm:inline">select a tool to see its parameters</span>
           </div>
 
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
@@ -112,7 +109,7 @@ export function Capabilities() {
                         tool={tool}
                         usage={usage(tool)}
                         most={most}
-                        selected={tool.name === selected.name}
+                        selected={(wide || picked !== null) && tool.name === selected.name}
                         onSelect={() => pick(tool.name)}
                       />
                     ))}
@@ -121,11 +118,18 @@ export function Capabilities() {
               })}
             </div>
 
-            <div ref={detail} className="min-w-0 scroll-mt-4 space-y-4 xl:sticky xl:top-0">
-              <ToolDetail tool={selected} usage={usage(selected)} policy={data.policy} days={data.usage_days} />
+            <div className="min-w-0 space-y-4 xl:sticky xl:top-0">
+              {wide && <ToolDetail tool={selected} usage={usage(selected)} policy={data.policy} days={data.usage_days} />}
               <Policy capabilities={data} />
             </div>
           </div>
+          {!wide && (
+            <Drawer open={picked !== null} onClose={() => setPicked(null)} eyebrow="tool" title={selected.name}>
+              <div className="p-3 sm:p-5">
+                <ToolDetail tool={selected} usage={usage(selected)} policy={data.policy} days={data.usage_days} />
+              </div>
+            </Drawer>
+          )}
         </>
       )}
     </HudPage>
@@ -201,7 +205,7 @@ function ToolRow({
     >
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-mono text-[13px] font-medium text-ink-200">{verb(tool.name)}</span>
-        <span className="truncate text-[11.5px] text-ink-600" title={tool.description}>
+        <span className="line-clamp-2 text-[11.5px] text-ink-600 md:line-clamp-none md:truncate" title={tool.description}>
           {tool.description}
         </span>
       </span>

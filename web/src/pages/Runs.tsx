@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { GlowDot, HudButton, HudCard, HudPage, HudPanel, LiveStamp, Quiet, Readouts, RefreshButton, type Readout } from "../components/hud";
 import { RISK_TONE, STATUS_TONE, runMillis, runStatus, type RunStatus } from "../components/runs/status";
+import { Drawer } from "../components/ui/Drawer";
 import { ErrorNote, Loading } from "../components/ui/primitives";
 import { TONE } from "../components/ui/tone";
 import { api } from "../lib/api";
 import type { Tone } from "../lib/console/derive";
 import { elapsed, stamp, tokens } from "../lib/format";
+import { useMediaQuery, WIDE } from "../lib/hooks/useMediaQuery";
 import { usePolling } from "../lib/hooks/usePolling";
 import type { RiskLevel, RunDetail, RunSummary } from "../lib/types";
 
@@ -27,7 +29,10 @@ export function Runs() {
 
   const all = runs ?? [];
   const shown = all.filter((r) => filter === "all" || r.risk === filter);
-  const selected = picked ?? all[0]?.run_id ?? null;
+  // Side by side the newest run is open by default; narrower, the run opens
+  // in a sheet on a tap, instead of rendering under a hundred rows.
+  const wide = useMediaQuery(WIDE);
+  const selected = picked ?? (wide ? (all[0]?.run_id ?? null) : null);
 
   const calls = (risk: RiskLevel) => all.reduce((sum, r) => sum + r.calls_by_risk[risk], 0);
   const statuses = all.map(runStatus);
@@ -91,8 +96,17 @@ export function Runs() {
               )}
             </HudPanel>
 
-            {selected && <RunView runId={selected} summary={all.find((r) => r.run_id === selected)} />}
+            {wide && selected && <RunView runId={selected} summary={all.find((r) => r.run_id === selected)} />}
           </div>
+          {!wide && (
+            <Drawer open={selected !== null} onClose={() => setPicked(null)} eyebrow="run" title={all.find((r) => r.run_id === selected)?.prompt ?? selected}>
+              {selected && (
+                <div className="p-3 sm:p-5">
+                  <RunView runId={selected} summary={all.find((r) => r.run_id === selected)} />
+                </div>
+              )}
+            </Drawer>
+          )}
         </>
       )}
     </HudPage>
@@ -252,7 +266,7 @@ function RunView({ runId, summary }: { runId: string; summary?: RunSummary }) {
         </ol>
       </div>
 
-      <div className="mx-6 mb-5.5 flex flex-col gap-1.5 border border-ink-850 bg-ink-950 px-4 py-3.5">
+      <div className="mx-3 mb-5.5 flex flex-col sm:mx-6 gap-1.5 border border-ink-850 bg-ink-950 px-4 py-3.5">
         <p className="font-mono text-[10px] font-medium tracking-[0.2em] text-ink-600 uppercase">{run.pending ? "suspended" : "answer"}</p>
         {run.pending ? (
           <p className="text-[13px] leading-normal text-ink-300">

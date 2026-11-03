@@ -48,18 +48,18 @@ export function ResourceMap({
                   {w.ready}/{w.desired}
                 </span>
                 {(sets.length ? sets : [""]).map((rs) => (
-                  <div key={rs || "direct"} className="mt-1.5 ml-4 border-l border-ink-800 pl-3">
-                    {rs && <p className="text-ink-500">└ {rs}</p>}
-                    <ul className="mt-1 ml-4 space-y-1">
+                  <div key={rs || "direct"} className="mt-1.5 ml-2 border-l border-ink-800 pl-2 sm:ml-4 sm:pl-3">
+                    {rs && <p className="[overflow-wrap:anywhere] text-ink-500">└ {rs}</p>}
+                    <ul className="mt-1 ml-2 space-y-1 sm:ml-4">
                       {mine
                         .filter((p) => !rs || p.owner === rs)
                         .map((p) => (
-                          <li key={p.name} className="flex items-center gap-2">
+                          <li key={p.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="text-ink-700">└</span>
                             <button
                               type="button"
                               onClick={() => onSelect({ kind: "pod", namespace, name: p.name })}
-                              className="text-ink-300 hover:text-ultron-300"
+                              className="min-w-0 text-left [overflow-wrap:anywhere] text-ink-300 hover:text-ultron-300"
                             >
                               Pod/{p.name}
                             </button>

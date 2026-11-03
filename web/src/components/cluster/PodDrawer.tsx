@@ -130,8 +130,8 @@ export function PodDrawer({
 
       {data && tab === "logs" && (
         <div className="flex h-full flex-col">
-          <Learn topic="logs" className="mx-5 my-3" />
-          <div className="mx-5 -mt-2 mb-2">
+          <Learn topic="logs" className="mx-3 my-3 sm:mx-5" />
+          <div className="mx-3 -mt-2 mb-2 sm:mx-5">
             <LearnCommand command={kubectl.podLogs(namespace, name, data.containers[0]?.name)} />
           </div>
           <div className="min-h-0 flex-1">

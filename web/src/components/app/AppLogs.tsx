@@ -35,9 +35,9 @@ export function AppLogs({
   const containers = sample?.containers.map((c) => c.name) ?? [];
 
   return (
-    <section className="flex h-[calc(100vh-15rem)] min-h-[28rem] flex-col border border-ultron-500/22 bg-ink-900/85">
+    <section className="flex h-[70dvh] min-h-[20rem] flex-col md:h-[calc(100dvh-15rem)] md:min-h-[28rem] border border-ultron-500/22 bg-ink-900/85">
       {workloads.length > 1 && (
-        <div className="flex gap-1.5 border-b border-ink-850 px-4 sm:px-5 py-2">
+        <div className="flex gap-1.5 overflow-x-auto border-b border-ink-850 px-4 py-2 [scrollbar-width:none] sm:flex-wrap sm:px-5">
           {workloads.map((w) => (
             <button
               key={w.name}
@@ -46,7 +46,7 @@ export function AppLogs({
                 setComponent(w.name);
                 window.history.replaceState(null, "", href("cluster", "apps", namespace, "logs", w.name));
               }}
-              className={`px-2.5 py-1 font-mono text-[11px] ${
+              className={`shrink-0 px-2.5 py-1.5 font-mono text-[11px] whitespace-nowrap sm:py-1 ${
                 w.name === workload.name ? "bg-ultron-500/10 text-ultron-300 ring-1 ring-ultron-500/40" : "text-ink-500 hover:text-ink-200"
               }`}
             >

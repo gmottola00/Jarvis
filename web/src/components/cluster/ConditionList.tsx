@@ -15,10 +15,10 @@ export function ConditionList({ conditions }: { conditions: PodCondition[] }) {
       {ordered.map((condition) => {
         const ok = condition.status === "True";
         return (
-          <li key={condition.type} className="grid grid-cols-[auto_9rem_1fr] items-baseline gap-2 font-mono text-[11px]">
+          <li key={condition.type} className="grid grid-cols-[auto_1fr] items-baseline gap-x-2 gap-y-0.5 sm:grid-cols-[auto_9rem_1fr] font-mono text-[11px]">
             <Dot tone={ok ? "ok" : "bad"} />
             <span className={ok ? "text-ink-400" : "text-rose-300"}>{condition.type}</span>
-            <span className="min-w-0 text-[10px] break-words text-ink-600">
+            <span className="col-start-2 min-w-0 text-[10px] break-words text-ink-600 sm:col-start-auto">
               {condition.reason}
               {condition.message && ` — ${condition.message}`}
               {condition.at && <span className="text-ink-800"> · {since(condition.at)} ago</span>}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DailySpend } from "../../lib/console/types";
 import { HudPanel, Quiet } from "../hud";
+import { useMediaQuery } from "../../lib/hooks/useMediaQuery";
 import { usd } from "./format";
 
 /**
@@ -44,8 +45,14 @@ function shortDay(iso: string): string {
 }
 
 /** Spend per day, stacked by app, over the last week. */
+/** The tooltip sits right of a bar on the left half and left of it on the right half, never past the panel. */
+function tooltipAt(percent: number) {
+  return percent > 50 ? { right: `${100 - percent}%` } : { left: `${percent}%` };
+}
+
 export function DailySpendChart({ daily, aliases }: { daily: DailySpend[]; aliases: string[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const narrow = useMediaQuery("(max-width: 767px)");
   const colour = colourOf(aliases);
 
   const byDay = new Map<string, Day>();
@@ -66,7 +73,9 @@ export function DailySpendChart({ daily, aliases }: { daily: DailySpend[]; alias
     );
   }
 
-  const width = 480;
+  // On a phone the chart is drawn narrower, so the axis text keeps its size
+  // instead of shrinking with the viewBox.
+  const width = narrow ? 320 : 480;
   const max = niceMax(Math.max(...days.map((d) => d.total)));
   const plotW = width - PAD.left - PAD.right;
   const plotH = HEIGHT - PAD.top - PAD.bottom;
@@ -111,7 +120,12 @@ export function DailySpendChart({ daily, aliases }: { daily: DailySpend[]; alias
                 );
               });
             return (
-              <g key={d.day} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+              <g
+                key={d.day}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                onClick={() => setHover((current) => (current === i ? null : i))}
+              >
                 {/* Hit target: the whole column, taller and wider than the bar. */}
                 <rect x={PAD.left + i * slot} y={PAD.top} width={slot} height={plotH} fill="transparent" />
                 {segments}
@@ -126,7 +140,7 @@ export function DailySpendChart({ daily, aliases }: { daily: DailySpend[]; alias
         {hovered && hover !== null && (
           <div
             className="pointer-events-none absolute top-1 z-10 min-w-36 border border-ink-800 bg-ink-950/95 px-3 py-2 font-mono text-[11px] shadow-lg"
-            style={{ left: `${Math.min(70, ((PAD.left + (hover + 0.5) * slot) / width) * 100)}%` }}
+            style={tooltipAt(((PAD.left + (hover + 0.5) * slot) / width) * 100)}
           >
             <p className="mb-1 text-ink-300">
               {shortDay(hovered.day)} · {usd(hovered.total)}

@@ -21,8 +21,8 @@ export function KeysPanel({ keys, windowLabel }: { keys: KeyUsage[]; windowLabel
             const width = k.budget_used === null ? 0 : Math.min(100, k.budget_used * 100);
             return (
               <li key={k.alias} className="grid gap-1.5 px-4 sm:px-5 py-3">
-                <p className="flex items-baseline gap-3 font-mono text-xs">
-                  <span className="font-medium text-ink-200">{k.alias}</span>
+                <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 font-mono text-xs">
+                  <span className="min-w-0 font-medium [overflow-wrap:anywhere] text-ink-200">{k.alias}</span>
                   <span className={tone === "idle" ? "text-ink-300" : TONE[tone].text}>
                     {usd(k.spend)}
                     {k.max_budget !== null && <span className="text-ink-600"> / {usd(k.max_budget)}</span>}

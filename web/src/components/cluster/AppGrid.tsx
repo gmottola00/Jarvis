@@ -61,11 +61,11 @@ export function AppGrid() {
 
       {groups.map((group) => (
         <section key={group.title} className="space-y-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span aria-hidden className="h-3.5 w-[3px] bg-ultron-500 shadow-[0_0_8px] shadow-ultron-500" />
             <h3 className="font-display text-[15px] font-bold tracking-[0.28em] text-ink-300 uppercase">{group.title}</h3>
             <span className="font-mono text-[11px] text-ink-600">{group.note}</span>
-            <span aria-hidden className="h-px flex-1 bg-ultron-500/15" />
+            <span aria-hidden className="hidden h-px flex-1 bg-ultron-500/15 sm:block" />
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {group.items.map((entry) => (
@@ -109,7 +109,7 @@ function AppCard({ entry, inCluster }: { entry: Entry; inCluster: boolean }) {
         {entry.facts.map((f) => (
           <p key={f.k} className="flex gap-2">
             <span className="w-16 shrink-0 text-ink-600">{f.k}</span>
-            <span className={`min-w-0 truncate ${f.tone ? TONE[f.tone].text : f.dim ? "text-ink-400" : "text-ink-300"}`} title={f.v}>
+            <span className={`min-w-0 [overflow-wrap:anywhere] md:truncate ${f.tone ? TONE[f.tone].text : f.dim ? "text-ink-400" : "text-ink-300"}`} title={f.v}>
               {f.v}
             </span>
           </p>

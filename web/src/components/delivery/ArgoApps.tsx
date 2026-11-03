@@ -26,11 +26,11 @@ export function ArgoApps({ apps }: { apps: AppDelivery[] }) {
           return (
             <li
               key={app.name}
-              className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-l-2 border-t-ultron-500/12 border-l-transparent px-3 py-2.5 ${ROW_MARK[tone] ?? ""}`}
+              className={`grid grid-cols-1 items-center gap-x-3 gap-y-1 border-t sm:grid-cols-[minmax(0,1fr)_auto] border-l-2 border-t-ultron-500/12 border-l-transparent px-3 py-2.5 ${ROW_MARK[tone] ?? ""}`}
             >
               <span className="flex min-w-0 flex-col gap-0.5">
                 {isAppNamespace(app.name) ? (
-                  <a href={href("cluster", "apps", app.name)} className="font-mono text-[13px] font-medium text-ink-200 hover:text-ultron-300">
+                  <a href={href("cluster", "apps", app.name)} className="font-mono text-[13px] font-medium [overflow-wrap:anywhere] text-ink-200 hover:text-ultron-300">
                     {app.name}
                   </a>
                 ) : (
