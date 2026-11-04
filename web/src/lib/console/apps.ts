@@ -19,6 +19,7 @@ export const PLATFORM: Record<string, string> = {
   grafana: "metrics",
   jarvis: "agent",
   databases: "database",
+  qdrant: "vector store",
   "cnpg-system": "operator",
 };
 
